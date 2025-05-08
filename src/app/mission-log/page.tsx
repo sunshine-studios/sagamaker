@@ -36,80 +36,81 @@ const defaultTasks: Task[] = [
   { id: 2, title: 'Task 2', description: '', completed: false, created: '2025-05-05', modified: '2025-05-05', status: 'Active' },
 ];
 
-const MissionLogPage = () => {
-  // State
-  const [theme, setTheme] = useState('');
-  const [project, setProject] = useState('Project 1');
-  const [projects, setProjects] = useState<{ [name: string]: ProjectData }>({
+const getInitialProjects = () => {
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem(LS_KEY);
+    if (stored) return JSON.parse(stored);
+  }
+  return {
     'Project 1': { monthlyGoals: defaultGoals, weeklyTasks: defaultTasks },
     'Project 2': { monthlyGoals: defaultGoals, weeklyTasks: defaultTasks },
-  });
+  };
+};
+const getInitialTheme = () => {
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem(LS_THEME);
+    if (stored) return stored;
+  }
+  return '';
+};
+const getInitialProject = () => {
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem(LS_PROJECT);
+    if (stored) return stored;
+  }
+  return 'Project 1';
+};
+
+const MissionLogPage = () => {
+  // State
+  const [theme, setTheme] = useState(getInitialTheme);
+  const [project, setProject] = useState(getInitialProject);
+  const [projects, setProjects] = useState(getInitialProjects);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [newProjectName, setNewProjectName] = useState('');
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // Load from localStorage
-  useEffect(() => {
-    const stored = localStorage.getItem(LS_KEY);
-    if (stored) setProjects(JSON.parse(stored));
-    const storedTheme = localStorage.getItem(LS_THEME);
-    if (storedTheme) setTheme(storedTheme);
-    const storedProject = localStorage.getItem(LS_PROJECT);
-    if (storedProject) setProject(storedProject);
-  }, []);
-
-  // Save to localStorage
-  useEffect(() => {
-    localStorage.setItem(LS_KEY, JSON.stringify(projects));
-  }, [projects]);
-  useEffect(() => {
-    localStorage.setItem(LS_THEME, theme);
-  }, [theme]);
-  useEffect(() => {
-    localStorage.setItem(LS_PROJECT, project);
-  }, [project]);
-
   // Handlers
   const handleGoalChange = (id: number, value: string) => {
-    setProjects(prev => ({
+    setProjects((prev: { [name: string]: ProjectData }) => ({
       ...prev,
       [project]: {
         ...prev[project],
-        monthlyGoals: prev[project].monthlyGoals.map(g => g.id === id ? { ...g, text: value } : g),
+        monthlyGoals: prev[project].monthlyGoals.map((g: Goal) => g.id === id ? { ...g, text: value } : g),
       },
     }));
   };
   const handleGoalToggle = (id: number) => {
-    setProjects(prev => ({
+    setProjects((prev: { [name: string]: ProjectData }) => ({
       ...prev,
       [project]: {
         ...prev[project],
-        monthlyGoals: prev[project].monthlyGoals.map(g => g.id === id ? { ...g, completed: !g.completed } : g),
+        monthlyGoals: prev[project].monthlyGoals.map((g: Goal) => g.id === id ? { ...g, completed: !g.completed } : g),
       },
     }));
   };
   const handleTaskChange = (id: number, field: 'title' | 'description', value: string) => {
-    setProjects(prev => ({
+    setProjects((prev: { [name: string]: ProjectData }) => ({
       ...prev,
       [project]: {
         ...prev[project],
-        weeklyTasks: prev[project].weeklyTasks.map(t => t.id === id ? { ...t, [field]: value, modified: new Date().toISOString().slice(0, 10) } : t),
+        weeklyTasks: prev[project].weeklyTasks.map((t: Task) => t.id === id ? { ...t, [field]: value, modified: new Date().toISOString().slice(0, 10) } : t),
       },
     }));
   };
   const handleTaskToggle = (id: number) => {
-    setProjects(prev => ({
+    setProjects((prev: { [name: string]: ProjectData }) => ({
       ...prev,
       [project]: {
         ...prev[project],
-        weeklyTasks: prev[project].weeklyTasks.map(t => t.id === id ? { ...t, completed: !t.completed, modified: new Date().toISOString().slice(0, 10) } : t),
+        weeklyTasks: prev[project].weeklyTasks.map((t: Task) => t.id === id ? { ...t, completed: !t.completed, modified: new Date().toISOString().slice(0, 10) } : t),
       },
     }));
   };
   const handleAddProject = () => {
     if (!newProjectName.trim() || projects[newProjectName]) return;
-    setProjects(prev => ({
+    setProjects((prev: { [name: string]: ProjectData }) => ({
       ...prev,
       [newProjectName]: { monthlyGoals: [], weeklyTasks: [] },
     }));
@@ -117,7 +118,7 @@ const MissionLogPage = () => {
     setNewProjectName('');
   };
   const handleAddGoal = () => {
-    setProjects(prev => ({
+    setProjects((prev: { [name: string]: ProjectData }) => ({
       ...prev,
       [project]: {
         ...prev[project],
@@ -129,7 +130,7 @@ const MissionLogPage = () => {
     }));
   };
   const handleAddTask = () => {
-    setProjects(prev => ({
+    setProjects((prev: { [name: string]: ProjectData }) => ({
       ...prev,
       [project]: {
         ...prev[project],
@@ -141,14 +142,14 @@ const MissionLogPage = () => {
     }));
   };
   // Properties panel handlers
-  const selectedTask = projects[project]?.weeklyTasks.find(t => t.id === selectedTaskId) || null;
+  const selectedTask = projects[project]?.weeklyTasks.find((t: Task) => t.id === selectedTaskId) || null;
   const handlePropertiesChange = (field: keyof Task, value: string) => {
     if (!selectedTask) return;
-    setProjects(prev => ({
+    setProjects((prev: { [name: string]: ProjectData }) => ({
       ...prev,
       [project]: {
         ...prev[project],
-        weeklyTasks: prev[project].weeklyTasks.map(t =>
+        weeklyTasks: prev[project].weeklyTasks.map((t: Task) =>
           t.id === selectedTaskId ? { ...t, [field]: value, modified: new Date().toISOString().slice(0, 10) } : t
         ),
       },
@@ -159,6 +160,17 @@ const MissionLogPage = () => {
   const projectNames = Object.keys(projects);
   const currentGoals = projects[project]?.monthlyGoals || [];
   const currentTasks = projects[project]?.weeklyTasks || [];
+
+  // Keep useEffect that saves to localStorage
+  useEffect(() => {
+    localStorage.setItem(LS_KEY, JSON.stringify(projects));
+  }, [projects]);
+  useEffect(() => {
+    localStorage.setItem(LS_THEME, theme);
+  }, [theme]);
+  useEffect(() => {
+    localStorage.setItem(LS_PROJECT, project);
+  }, [project]);
 
   return (
     <div className="flex flex-row w-full min-h-screen p-6 gap-6 bg-[#083676]">
@@ -199,7 +211,7 @@ const MissionLogPage = () => {
             <span className="font-semibold text-white">Monthly Goals</span>
             <button className="text-xl text-white" onClick={handleAddGoal}>+</button>
           </div>
-          {currentGoals.map(goal => (
+          {currentGoals.map((goal: Goal) => (
             <div key={goal.id} className="flex items-center gap-2 mb-1">
               <input
                 type="checkbox"
@@ -222,7 +234,7 @@ const MissionLogPage = () => {
           <span className="font-semibold text-lg text-white">Weekly Tasks</span>
           <button className="text-xl text-white" onClick={handleAddTask}>+</button>
         </div>
-        {currentTasks.map(task => (
+        {currentTasks.map((task: Task) => (
           <div
             key={task.id}
             className={`bg-[#818181] rounded-lg p-4 mb-2 flex flex-col gap-2 border border-gray-600 cursor-pointer ${selectedTaskId === task.id ? 'ring-2 ring-blue-400' : ''}`}
