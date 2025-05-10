@@ -12,6 +12,8 @@ interface WeeklyGoal {
   week: number;
   skillLink?: string;
   project: string;
+  dateAdded: string;
+  dateCompleted?: string;
 }
 
 interface MonthlyGoal {
@@ -23,6 +25,8 @@ interface MonthlyGoal {
   skillLink?: string;
   project: string;
   weeklyGoals: WeeklyGoal[];
+  dateAdded: string;
+  dateCompleted?: string;
 }
 
 interface ProjectData {
@@ -39,12 +43,12 @@ const generateUniqueId = () => {
 };
 
 const defaultWeeklyGoals: WeeklyGoal[] = [
-  { id: generateUniqueId(), text: 'Weekly Goal 1', completed: false, month: '2025-05', week: 1, project: 'Project 1' },
-  { id: generateUniqueId(), text: 'Weekly Goal 2', completed: false, month: '2025-05', week: 2, project: 'Project 1' },
+  { id: generateUniqueId(), text: 'Weekly Goal 1', completed: false, month: '2025-05', week: 1, project: 'Project 1', dateAdded: new Date().toISOString().slice(0, 10) },
+  { id: generateUniqueId(), text: 'Weekly Goal 2', completed: false, month: '2025-05', week: 2, project: 'Project 1', dateAdded: new Date().toISOString().slice(0, 10) },
 ];
 const defaultMonthlyGoals: MonthlyGoal[] = [
-  { id: generateUniqueId(), text: 'Monthly Goal 1', completed: false, month: '2025-05', project: 'Project 1', weeklyGoals: defaultWeeklyGoals },
-  { id: generateUniqueId(), text: 'Monthly Goal 2', completed: false, month: '2025-05', project: 'Project 1', weeklyGoals: [] },
+  { id: generateUniqueId(), text: 'Monthly Goal 1', completed: false, month: '2025-05', project: 'Project 1', weeklyGoals: defaultWeeklyGoals, dateAdded: new Date().toISOString().slice(0, 10) },
+  { id: generateUniqueId(), text: 'Monthly Goal 2', completed: false, month: '2025-05', project: 'Project 1', weeklyGoals: [], dateAdded: new Date().toISOString().slice(0, 10) },
 ];
 
 const getInitialProjects = () => {
@@ -111,6 +115,8 @@ const MissionLogPage = () => {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthString());
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [selectedWeek, setSelectedWeek] = useState(1);
+  const [showAllTasks, setShowAllTasks] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -140,6 +146,11 @@ const MissionLogPage = () => {
     setSelectedTaskId(null);
     setSelectedGoalId(null);
   }, [project]);
+
+  // Reset showAllTasks when month changes
+  useEffect(() => {
+    setShowAllTasks(false);
+  }, [selectedMonth]);
 
   const handleClearStorage = () => {
     if (window.confirm('Are you sure you want to clear all stored data? This cannot be undone.')) {
@@ -173,15 +184,8 @@ const MissionLogPage = () => {
   };
   const handleGoalToggle = (id: string) => {
     setProjects((prev: { [name: string]: ProjectData }) => {
-      // Check if project exists
       if (!prev[project]) {
         console.warn(`Project ${project} not found`);
-        return prev;
-      }
-
-      // Check if monthlyGoals exists
-      if (!prev[project].monthlyGoals) {
-        console.warn(`No monthly goals found for project ${project}`);
         return prev;
       }
 
@@ -189,9 +193,18 @@ const MissionLogPage = () => {
         ...prev,
         [project]: {
           ...prev[project],
-          monthlyGoals: prev[project].monthlyGoals.map((g: MonthlyGoal) => 
-            g.id === id ? { ...g, completed: !g.completed } : g
-          ),
+          monthlyGoals: prev[project].monthlyGoals.map((g: MonthlyGoal) => {
+            if (g.id === id) {
+              const newCompleted = !g.completed;
+              return {
+                ...g,
+                completed: newCompleted,
+                dateCompleted: newCompleted ? new Date().toISOString().slice(0, 10) : undefined,
+                modified: new Date().toISOString().slice(0, 10)
+              };
+            }
+            return g;
+          })
         },
       };
     });
@@ -230,9 +243,18 @@ const MissionLogPage = () => {
           ...prev[project],
           monthlyGoals: prev[project].monthlyGoals.map((g: MonthlyGoal) => ({
             ...g,
-            weeklyGoals: g.weeklyGoals.map((t: WeeklyGoal) => 
-              t.id === id ? { ...t, completed: !t.completed, modified: new Date().toISOString().slice(0, 10) } : t
-            )
+            weeklyGoals: g.weeklyGoals.map((t: WeeklyGoal) => {
+              if (t.id === id) {
+                const newCompleted = !t.completed;
+                return {
+                  ...t,
+                  completed: newCompleted,
+                  dateCompleted: newCompleted ? new Date().toISOString().slice(0, 10) : undefined,
+                  modified: new Date().toISOString().slice(0, 10)
+                };
+              }
+              return t;
+            })
           }) as MonthlyGoal)
         },
       };
@@ -249,21 +271,17 @@ const MissionLogPage = () => {
   };
   const handleAddGoal = () => {
     setProjects((prev: { [name: string]: ProjectData }) => {
-      // Check if project exists
       if (!prev[project]) {
         console.warn(`Project ${project} not found`);
         return prev;
       }
-
-      // Ensure monthlyGoals exists
-      const currentMonthlyGoals = prev[project].monthlyGoals || [];
 
       return {
         ...prev,
         [project]: {
           ...prev[project],
           monthlyGoals: [
-            ...currentMonthlyGoals,
+            ...(prev[project].monthlyGoals || []),
             {
               id: generateUniqueId(),
               text: '',
@@ -271,37 +289,85 @@ const MissionLogPage = () => {
               month: selectedMonth,
               project: project,
               weeklyGoals: [],
-            },
-          ],
-        },
+              dateAdded: new Date().toISOString().slice(0, 10)
+            }
+          ]
+        }
       };
     });
   };
   const handleAddTask = () => {
-    setProjects((prev: { [name: string]: ProjectData }) => ({
-      ...prev,
-      [project]: {
-        ...prev[project],
-        monthlyGoals: prev[project].monthlyGoals.map((g: MonthlyGoal) => ({
-          ...g,
-          weeklyGoals: [
-            ...(g.weeklyGoals || []),
-            { 
-              id: generateUniqueId(), 
-              text: '', 
-              completed: false, 
-              month: selectedMonth, 
-              week: 1, 
-              project: project 
-            },
-          ],
-        }) as MonthlyGoal)
-      },
-    }));
+    setProjects((prev: { [name: string]: ProjectData }) => {
+      if (!prev[project] || !prev[project].monthlyGoals) {
+        console.warn(`Project ${project} or its monthly goals not found`);
+        return prev;
+      }
+
+      const newTask = {
+        id: generateUniqueId(),
+        text: '',
+        completed: false,
+        month: selectedMonth,
+        week: selectedWeek,
+        project: project,
+        skillLink: `monthly:${generateUniqueId()}`,
+        dateAdded: new Date().toISOString().slice(0, 10)
+      };
+
+      // Get the first monthly goal
+      const firstMonthlyGoal = prev[project].monthlyGoals[0];
+      
+      if (!firstMonthlyGoal) {
+        // If no monthly goals exist, create one
+        return {
+          ...prev,
+          [project]: {
+            ...prev[project],
+            monthlyGoals: [
+              {
+                id: generateUniqueId(),
+                text: '',
+                completed: false,
+                month: selectedMonth,
+                project: project,
+                weeklyGoals: [newTask],
+                dateAdded: new Date().toISOString().slice(0, 10)
+              }
+            ]
+          }
+        };
+      }
+
+      // Add the new task to the first monthly goal
+      return {
+        ...prev,
+        [project]: {
+          ...prev[project],
+          monthlyGoals: prev[project].monthlyGoals.map((g: MonthlyGoal, index: number) => {
+            if (index === 0) {
+              return {
+                ...g,
+                weeklyGoals: [...(g.weeklyGoals || []), newTask]
+              };
+            }
+            return g;
+          })
+        }
+      };
+    });
   };
   // Properties panel handlers
-  const selectedTask = projects[project]?.monthlyGoals?.find((g: MonthlyGoal) => g.id === selectedGoalId)?.weeklyGoals?.find((t: WeeklyGoal) => t.id === selectedTaskId) || null;
-  const selectedGoal = projects[project]?.monthlyGoals?.find((g: MonthlyGoal) => g.id === selectedGoalId) || null;
+  const selectedTask = middleSection === 'weekly' 
+    ? projects[project]?.monthlyGoals
+        ?.flatMap((g: MonthlyGoal) => g.weeklyGoals)
+        .find((t: WeeklyGoal) => t.id === selectedTaskId) || null
+    : null;
+
+  const selectedGoal = middleSection === 'monthly'
+    ? projects[project]?.monthlyGoals
+        ?.find((g: MonthlyGoal) => g.id === selectedGoalId) || null
+    : null;
+
   const handlePropertiesChange = (field: keyof WeeklyGoal, value: string | number | boolean | null) => {
     if (!selectedTask || !projects[project]) return;
     
@@ -311,13 +377,59 @@ const MissionLogPage = () => {
         ...prev[project],
         monthlyGoals: prev[project].monthlyGoals.map((g: MonthlyGoal) => ({
           ...g,
-          weeklyGoals: g.weeklyGoals.map((t: WeeklyGoal) =>
-            t.id === selectedTaskId ? { ...t, [field]: value, modified: new Date().toISOString().slice(0, 10) } : t
-          )
+          weeklyGoals: g.weeklyGoals.map((t: WeeklyGoal) => {
+            if (t.id === selectedTaskId) {
+              const updates: Partial<WeeklyGoal> = {
+                [field]: value
+              };
+              
+              // If changing completion status, update completion date
+              if (field === 'completed') {
+                updates.dateCompleted = value ? new Date().toISOString().slice(0, 10) : undefined;
+              }
+              
+              return { ...t, ...updates };
+            }
+            return t;
+          })
         }) as MonthlyGoal)
       },
     }));
   };
+
+  const handleDeleteTask = () => {
+    if (!selectedTask || !projects[project]) return;
+    
+    if (window.confirm('Are you sure you want to delete this task?')) {
+      setProjects((prev: { [name: string]: ProjectData }) => ({
+        ...prev,
+        [project]: {
+          ...prev[project],
+          monthlyGoals: prev[project].monthlyGoals.map((g: MonthlyGoal) => ({
+            ...g,
+            weeklyGoals: g.weeklyGoals.filter((t: WeeklyGoal) => t.id !== selectedTaskId)
+          }))
+        },
+      }));
+      setSelectedTaskId(null);
+    }
+  };
+
+  const handleDeleteGoal = () => {
+    if (!selectedGoal || !projects[project]) return;
+    
+    if (window.confirm('Are you sure you want to delete this goal and all its linked tasks?')) {
+      setProjects((prev: { [name: string]: ProjectData }) => ({
+        ...prev,
+        [project]: {
+          ...prev[project],
+          monthlyGoals: prev[project].monthlyGoals.filter((g: MonthlyGoal) => g.id !== selectedGoalId)
+        },
+      }));
+      setSelectedGoalId(null);
+    }
+  };
+
   const handleGoalPropertiesChange = (field: keyof MonthlyGoal, value: string | boolean) => {
     if (!selectedGoal || !projects[project]) return;
     
@@ -325,9 +437,21 @@ const MissionLogPage = () => {
       ...prev,
       [project]: {
         ...prev[project],
-        monthlyGoals: prev[project].monthlyGoals.map((g: MonthlyGoal) =>
-          g.id === selectedGoalId ? { ...g, [field]: value, modified: new Date().toISOString().slice(0, 10) } : g
-        )
+        monthlyGoals: prev[project].monthlyGoals.map((g: MonthlyGoal) => {
+          if (g.id === selectedGoalId) {
+            const updates: Partial<MonthlyGoal> = {
+              [field]: value
+            };
+            
+            // If changing completion status, update completion date
+            if (field === 'completed') {
+              updates.dateCompleted = value ? new Date().toISOString().slice(0, 10) : undefined;
+            }
+            
+            return { ...g, ...updates };
+          }
+          return g;
+        })
       },
     }));
   };
@@ -345,22 +469,38 @@ const MissionLogPage = () => {
     return { label: `${m} ${year}`, value };
   });
 
-  // For left column previews, always use allGoals as Goal[]
-  const leftColumnGoals: MonthlyGoal[] = allGoals.filter((g: MonthlyGoal) => (g.month ?? getCurrentMonthString()) === selectedMonth);
-  const leftColumnTasks = currentTasks.filter((t: WeeklyGoal | undefined): t is WeeklyGoal => {
-    if (!t) return false;
-    const skillLink = t.skillLink;
-    if (!skillLink || typeof skillLink !== 'string') return false;
-    const linkedGoal = allGoals.find((g: MonthlyGoal) => String(g.id) === skillLink.split(':')[1]);
-    return Boolean(linkedGoal && (linkedGoal.month ?? getCurrentMonthString()) === selectedMonth);
-  });
+  // For left column previews, filter by both month and week
+  const leftColumnTasks = (() => {
+    // Get all tasks for the current month
+    const monthTasks = currentTasks.filter((t: WeeklyGoal | undefined): t is WeeklyGoal => {
+      if (!t) return false;
+      const skillLink = t.skillLink;
+      if (!skillLink || typeof skillLink !== 'string') return false;
+      const linkedGoal = allGoals.find((g: MonthlyGoal) => String(g.id) === skillLink.split(':')[1]);
+      return Boolean(linkedGoal && (linkedGoal.month ?? getCurrentMonthString()) === selectedMonth);
+    });
 
-  // For center column, define centerColumnTasks for weekly mode
+    // Sort tasks by week and return first 3
+    return monthTasks
+      .sort((a: WeeklyGoal, b: WeeklyGoal) => a.week - b.week)
+      .slice(0, 3);
+  })();
+
+  // For center column, filter weekly tasks by selected week
   const centerColumnTasks = project === 'ALL_PROJECTS'
     ? (Object.values(projects) as ProjectData[])
         .flatMap((p) => p.monthlyGoals.flatMap((g: MonthlyGoal) => g.weeklyGoals))
-        .filter((task: WeeklyGoal | undefined): task is WeeklyGoal => task !== undefined)
-    : (currentTasks || []).filter((task: WeeklyGoal | undefined): task is WeeklyGoal => task !== undefined);
+        .filter((task: WeeklyGoal | undefined): task is WeeklyGoal => 
+          task !== undefined && 
+          task.month === selectedMonth &&
+          (showAllTasks || task.week === selectedWeek)
+        )
+    : (currentTasks || [])
+        .filter((task: WeeklyGoal | undefined): task is WeeklyGoal => 
+          task !== undefined && 
+          task.month === selectedMonth &&
+          (showAllTasks || task.week === selectedWeek)
+        );
 
   // Center column: if 'All Projects' is selected and in monthly mode, build an array of { goal, projectName }
   let centerColumnGoals: { goal: MonthlyGoal; projectName: string }[] = [];
@@ -395,7 +535,7 @@ const MissionLogPage = () => {
               ))}
             </select>
           </div>
-          {leftColumnGoals.slice(0, MAX_PREVIEW).map((goal: MonthlyGoal) => (
+          {currentGoals.slice(0, MAX_PREVIEW).map((goal: MonthlyGoal) => (
             <div key={goal.id} className="flex items-center gap-2 mb-2">
               <input
                 type="checkbox"
@@ -406,8 +546,8 @@ const MissionLogPage = () => {
               <span className={`truncate text-white text-sm ${goal.completed ? 'line-through' : ''}`}>{goal.text}</span>
             </div>
           ))}
-          {leftColumnGoals.length > MAX_PREVIEW && (
-            <div className="text-xs text-gray-200 mt-2">+{leftColumnGoals.length - MAX_PREVIEW} more...</div>
+          {currentGoals.length > MAX_PREVIEW && (
+            <div className="text-xs text-gray-200 mt-2">+{currentGoals.length - MAX_PREVIEW} more...</div>
           )}
         </div>
         <div className="bg-[#818181] rounded-lg p-4">
@@ -436,6 +576,23 @@ const MissionLogPage = () => {
         <div className="bg-[#818181] rounded-lg p-4">
           <div className={SECTION_HEADER_STYLES}>
             <span className="font-semibold text-white">Weekly Tasks</span>
+            <select
+              className={SELECT_STYLES}
+              value={showAllTasks ? 'all' : String(selectedWeek)}
+              onChange={e => {
+                if (e.target.value === 'all') {
+                  setShowAllTasks(true);
+                } else {
+                  setShowAllTasks(false);
+                  setSelectedWeek(Number(e.target.value));
+                }
+              }}
+            >
+              <option value="all">All Tasks</option>
+              {Array.from({ length: 5 }, (_, i) => (
+                <option key={i + 1} value={i + 1}>Week {i + 1}</option>
+              ))}
+            </select>
           </div>
           {leftColumnTasks.slice(0, MAX_PREVIEW).map((task: WeeklyGoal) => (
             <div key={task.id} className="flex items-center gap-2 mb-2">
@@ -605,13 +762,47 @@ const MissionLogPage = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-gray-200 mb-1">Skill Link</label>
-                <input
+                <label className="block text-sm text-gray-200 mb-1">Linked Monthly Goal</label>
+                <select
                   className={SELECT_STYLES}
-                  placeholder="Enter skill link"
-                  value={selectedTask.skillLink || ''}
-                  onChange={e => handlePropertiesChange('skillLink', e.target.value)}
+                  value={selectedTask?.skillLink?.split(':')[1] || ''}
+                  onChange={e => handlePropertiesChange('skillLink', e.target.value ? `monthly:${e.target.value}` : '')}
+                >
+                  <option value="">No Link</option>
+                  {projects[project]?.monthlyGoals?.map((goal: MonthlyGoal) => (
+                    <option key={goal.id} value={goal.id}>
+                      {goal.text || 'Untitled Goal'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-200 mb-1">Date Added</label>
+                <input
+                  type="date"
+                  className={SELECT_STYLES}
+                  value={selectedTask.dateAdded}
+                  onChange={e => handlePropertiesChange('dateAdded', e.target.value)}
                 />
+              </div>
+              {selectedTask.completed && (
+                <div>
+                  <label className="block text-sm text-gray-200 mb-1">Date Completed</label>
+                  <input
+                    type="date"
+                    className={SELECT_STYLES}
+                    value={selectedTask.dateCompleted || new Date().toISOString().slice(0, 10)}
+                    onChange={e => handlePropertiesChange('dateCompleted', e.target.value)}
+                  />
+                </div>
+              )}
+              <div className="pt-4 border-t border-gray-600">
+                <button
+                  onClick={handleDeleteTask}
+                  className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm"
+                >
+                  Delete Task
+                </button>
               </div>
             </div>
           ) : middleSection === 'monthly' && selectedGoal ? (
@@ -666,6 +857,34 @@ const MissionLogPage = () => {
                   value={selectedGoal.skillLink || ''}
                   onChange={e => handleGoalPropertiesChange('skillLink', e.target.value)}
                 />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-200 mb-1">Date Added</label>
+                <input
+                  type="date"
+                  className={SELECT_STYLES}
+                  value={selectedGoal.dateAdded}
+                  onChange={e => handleGoalPropertiesChange('dateAdded', e.target.value)}
+                />
+              </div>
+              {selectedGoal.completed && (
+                <div>
+                  <label className="block text-sm text-gray-200 mb-1">Date Completed</label>
+                  <input
+                    type="date"
+                    className={SELECT_STYLES}
+                    value={selectedGoal.dateCompleted || new Date().toISOString().slice(0, 10)}
+                    onChange={e => handleGoalPropertiesChange('dateCompleted', e.target.value)}
+                  />
+                </div>
+              )}
+              <div className="pt-4 border-t border-gray-600">
+                <button
+                  onClick={handleDeleteGoal}
+                  className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm"
+                >
+                  Delete Goal
+                </button>
               </div>
             </div>
           ) : (

@@ -50,6 +50,12 @@ const Header = () => {
                 >
                   Mission Log
                 </button>
+                <button
+                  className="text-left px-6 py-3 text-white hover:bg-blue-700"
+                  onClick={() => { router.push('/daily-habits'); setMenuOpen(false); }}
+                >
+                  Daily Habits
+                </button>
               </div>
             </nav>
           </div>
