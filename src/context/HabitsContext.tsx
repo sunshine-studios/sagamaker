@@ -2,6 +2,22 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
+// Add color palette for habits
+export const HABIT_COLORS = [
+  '#FF6B6B', // Coral Red
+  '#4ECDC4', // Turquoise
+  '#45B7D1', // Sky Blue
+  '#96CEB4', // Sage Green
+  '#FFEEAD', // Cream Yellow
+  '#D4A5A5', // Dusty Rose
+  '#9B59B6', // Purple
+  '#3498DB', // Blue
+  '#E67E22', // Orange
+  '#2ECC71', // Emerald
+  '#F1C40F', // Yellow
+  '#1ABC9C', // Teal
+];
+
 export const DEFAULT_ICONS = [
   '🏋️', // Exercise
   '📖', // Reading
@@ -17,6 +33,11 @@ export const DEFAULT_ICONS = [
   '🌱', // Growth
 ];
 
+interface CompletionRecord {
+  date: string;  // ISO date string (YYYY-MM-DD)
+  completed: boolean;
+}
+
 interface Habit {
   id: string;
   name: string;
@@ -26,6 +47,8 @@ interface Habit {
   taskLink?: string;
   streakDays: number;
   archived: boolean;
+  completionHistory: CompletionRecord[];
+  color: string;  // Add color property
 }
 
 interface HabitsContextType {
@@ -40,6 +63,69 @@ interface HabitsContextType {
 
 const HabitsContext = createContext<HabitsContextType | undefined>(undefined);
 
+// Helper function to get today's date in YYYY-MM-DD format
+const getTodayString = () => {
+  return new Date().toISOString().split('T')[0];
+};
+
+// Helper function to calculate streak
+const calculateStreak = (history: CompletionRecord[]): number => {
+  if (history.length === 0) return 0;
+
+  // Sort history by date in descending order
+  const sortedHistory = [...history].sort((a, b) => 
+    new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+
+  let streak = 0;
+  let currentDate = new Date();
+  currentDate.setHours(0, 0, 0, 0);
+
+  // Check if the most recent record is from today
+  const mostRecent = sortedHistory[0];
+  if (mostRecent.date !== getTodayString()) {
+    return 0; // Streak is broken if today's record is missing
+  }
+
+  // If today's record is not completed, streak is 0
+  if (!mostRecent.completed) {
+    return 0;
+  }
+
+  // Count consecutive completed days
+  for (const record of sortedHistory) {
+    const recordDate = new Date(record.date);
+    recordDate.setHours(0, 0, 0, 0);
+
+    if (record.completed) {
+      streak++;
+    } else {
+      break;
+    }
+
+    // Check if there's a gap in dates
+    const expectedDate = new Date(currentDate);
+    expectedDate.setDate(expectedDate.getDate() - 1);
+    if (recordDate.getTime() !== expectedDate.getTime()) {
+      break;
+    }
+
+    currentDate = recordDate;
+  }
+
+  return streak;
+};
+
+// Helper function to check if yesterday was completed
+const wasYesterdayCompleted = (history: CompletionRecord[]): boolean => {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayString = yesterday.toISOString().split('T')[0];
+  
+  const yesterdayRecord = history.find(record => record.date === yesterdayString);
+  return yesterdayRecord?.completed || false;
+};
+
 export function HabitsProvider({ children }: { children: React.ReactNode }) {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [isClient, setIsClient] = useState(false);
@@ -48,7 +134,19 @@ export function HabitsProvider({ children }: { children: React.ReactNode }) {
     setIsClient(true);
     const savedHabits = localStorage.getItem('habits');
     if (savedHabits) {
-      setHabits(JSON.parse(savedHabits));
+      try {
+        // Migrate existing habits to include completionHistory and color
+        const parsedHabits = JSON.parse(savedHabits);
+        const migratedHabits = parsedHabits.map((habit: any, index: number) => ({
+          ...habit,
+          completionHistory: habit.completionHistory || [],
+          color: habit.color || HABIT_COLORS[index % HABIT_COLORS.length],
+        }));
+        setHabits(migratedHabits);
+      } catch (e) {
+        console.warn('Failed to parse saved habits:', e);
+        setHabits([]);
+      }
     }
   }, []);
 
@@ -72,6 +170,8 @@ export function HabitsProvider({ children }: { children: React.ReactNode }) {
       completed: false,
       streakDays: 0,
       archived: false,
+      completionHistory: [],
+      color: HABIT_COLORS[activeHabitsCount % HABIT_COLORS.length],
     };
     setHabits((prev) => [...prev, newHabit]);
   };
@@ -85,10 +185,41 @@ export function HabitsProvider({ children }: { children: React.ReactNode }) {
       prev.map((habit) => {
         if (habit.id === id) {
           const completed = !habit.completed;
+          const today = getTodayString();
+          
+          // Ensure completionHistory exists
+          const currentHistory = habit.completionHistory || [];
+          
+          // Check if yesterday was completed
+          const yesterdayCompleted = wasYesterdayCompleted(currentHistory);
+          
+          // If completing today and yesterday wasn't completed, reset streak
+          if (completed && !yesterdayCompleted) {
+            return {
+              ...habit,
+              completed,
+              streakDays: 1, // Start new streak
+              completionHistory: [
+                { date: today, completed },
+                ...currentHistory.filter(record => record.date !== today)
+              ],
+            };
+          }
+          
+          // Update completion history
+          const updatedHistory = [
+            { date: today, completed },
+            ...currentHistory.filter(record => record.date !== today)
+          ];
+
+          // Calculate new streak
+          const streakDays = calculateStreak(updatedHistory);
+
           return {
             ...habit,
             completed,
-            streakDays: completed ? habit.streakDays + 1 : habit.streakDays,
+            streakDays,
+            completionHistory: updatedHistory,
           };
         }
         return habit;

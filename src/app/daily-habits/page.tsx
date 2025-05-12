@@ -4,11 +4,22 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useHabits } from '@/context/HabitsContext';
 
+// Helper function to get days in month
+const getDaysInMonth = (year: number, month: number) => {
+  return new Date(year, month + 1, 0).getDate();
+};
+
+// Helper function to get first day of month
+const getFirstDayOfMonth = (year: number, month: number) => {
+  return new Date(year, month, 1).getDay();
+};
+
 export default function DailyHabitsPage() {
   const router = useRouter();
   const { habits, toggleHabit, addHabit, removeHabit, updateHabit, archiveHabit, DEFAULT_ICONS } = useHabits();
   const [selectedHabit, setSelectedHabit] = useState<typeof habits[0] | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   useEffect(() => {
     setMounted(true);
@@ -35,6 +46,24 @@ export default function DailyHabitsPage() {
 
   const activeHabits = habits.filter(habit => !habit.archived);
   const archivedHabits = habits.filter(habit => habit.archived);
+
+  // Calendar helpers
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  const daysInMonth = getDaysInMonth(year, month);
+  const firstDayOfMonth = getFirstDayOfMonth(year, month);
+  const totalDays = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  const emptyDays = Array.from({ length: firstDayOfMonth }, (_, i) => i);
+
+  // Get habits completed for a specific date
+  const getHabitsForDate = (day: number) => {
+    const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return activeHabits.filter(habit => 
+      habit.completionHistory.some(record => 
+        record.date === dateString && record.completed
+      )
+    );
+  };
 
   if (!mounted) {
     return null;
@@ -177,23 +206,62 @@ export default function DailyHabitsPage() {
         </div>
 
         {/* Right Column - Calendar */}
-        <div className="w-2/4 bg-[#818181] rounded-lg p-4">
+        <div className="w-1/3 bg-[#818181] rounded-lg p-4">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">Calendar</h2>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCurrentDate(new Date(year, month - 1))}
+                className="px-2 py-1 bg-[#1a1a1a] rounded hover:bg-blue-600"
+              >
+                ←
+              </button>
+              <span className="px-2 py-1">
+                {new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' })}
+              </span>
+              <button
+                onClick={() => setCurrentDate(new Date(year, month + 1))}
+                className="px-2 py-1 bg-[#1a1a1a] rounded hover:bg-blue-600"
+              >
+                →
+              </button>
+            </div>
+          </div>
+
           <div className="grid grid-cols-7 gap-2">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
               <div key={day} className="text-center font-semibold">
                 {day}
               </div>
             ))}
-            {/* Calendar days will go here */}
-            {Array.from({ length: 35 }, (_, i) => (
-              <div
-                key={i}
-                className="aspect-square bg-[#1a1a1a] rounded p-1"
-              >
-                <div className="text-sm mb-1">{i + 1}</div>
-                <div className="h-full bg-gradient-to-br from-blue-500 to-purple-500 opacity-50 rounded"></div>
-              </div>
+            
+            {/* Empty days at start */}
+            {emptyDays.map(day => (
+              <div key={`empty-${day}`} className="aspect-square bg-[#1a1a1a] rounded" />
             ))}
+            
+            {/* Calendar days */}
+            {totalDays.map(day => {
+              const habitsForDay = getHabitsForDate(day);
+              return (
+                <div
+                  key={day}
+                  className="aspect-square bg-[#1a1a1a] rounded p-1 relative"
+                >
+                  <div className="text-sm mb-1">{day}</div>
+                  <div className="flex flex-wrap gap-1">
+                    {habitsForDay.map(habit => (
+                      <div
+                        key={habit.id}
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: habit.color }}
+                        title={`${habit.name} - ${habit.streakDays} day streak`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

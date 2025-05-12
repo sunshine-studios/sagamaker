@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useHabits } from "@/context/HabitsContext";
 
 type Habit = {
   id: string;
@@ -51,21 +52,7 @@ const getCurrentWeek = () => {
 
 const MiddleColumn = () => {
   const router = useRouter();
-  const [habits, setHabits] = useState<Habit[]>([
-    { id: "1", icon: "🏋️", completed: false },
-    { id: "2", icon: "📖", completed: false },
-    { id: "3", icon: "🧘", completed: false },
-    { id: "4", icon: "🛏️", completed: false },
-    { id: "5", icon: "❓", completed: false },
-    { id: "6", icon: "❤️", completed: false },
-    { id: "7", icon: "💻", completed: false },
-    { id: "8", icon: "🎨", completed: false },
-    { id: "9", icon: "✏️", completed: false },
-    { id: "10", icon: "🎵", completed: false },
-    { id: "11", icon: "📅", completed: false },
-    { id: "12", icon: "🌙", completed: false },
-  ]);
-
+  const { habits, toggleHabit } = useHabits();
   const [currentMonthGoals, setCurrentMonthGoals] = useState<MonthlyGoal[]>([]);
   const [currentWeekTasks, setCurrentWeekTasks] = useState<WeeklyGoal[]>([]);
   const [mounted, setMounted] = useState(false);
@@ -110,12 +97,6 @@ const MiddleColumn = () => {
     return () => clearInterval(interval);
   }, [mounted]);
 
-  const toggleHabit = (id: string) => {
-    setHabits(prev =>
-      prev.map(h => (h.id === id ? { ...h, completed: !h.completed } : h))
-    );
-  };
-
   const navigateToMissions = () => {
     router.push("/mission-log");
   };
@@ -152,8 +133,8 @@ const MiddleColumn = () => {
             </svg>
           </button>
         </div>
-        <div className="grid grid-cols-6 gap-2">
-          {habits.map(habit => (
+        <div className="grid grid-cols-4 gap-2">
+          {habits.filter(habit => !habit.archived).map(habit => (
             <button
               key={habit.id}
               onClick={() => toggleHabit(habit.id)}
