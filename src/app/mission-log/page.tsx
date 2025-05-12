@@ -97,6 +97,20 @@ function getCurrentMonthString() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
+const getCurrentWeekOfMonth = () => {
+  const today = new Date();
+  const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const dayOfWeek = firstDayOfMonth.getDay();
+  const date = today.getDate();
+  return Math.ceil((date + dayOfWeek) / 7);
+};
+
+const formatMonthYear = (monthString: string) => {
+  const [year, month] = monthString.split('-').map(Number);
+  const date = new Date(year, month - 1);
+  return date.toLocaleString('default', { month: 'long', year: 'numeric' });
+};
+
 // Add these styles at the top of the file after imports
 const SELECT_STYLES = "w-full border border-gray-600 rounded p-2 text-sm bg-[#22223b] text-white focus:outline-none focus:ring-2 focus:ring-blue-500";
 const BUTTON_STYLES = "px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors";
@@ -115,10 +129,16 @@ const MissionLogPage = () => {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthString());
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [selectedWeek, setSelectedWeek] = useState(1);
+  const [selectedWeek, setSelectedWeek] = useState(getCurrentWeekOfMonth());
   const [showAllTasks, setShowAllTasks] = useState(false);
 
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => { 
+    setMounted(true);
+    // Set initial week to current week of month
+    setSelectedWeek(getCurrentWeekOfMonth());
+    // Set initial view to weekly
+    setMiddleSection('weekly');
+  }, []);
 
   // Save to localStorage whenever projects change
   useEffect(() => {
@@ -620,19 +640,35 @@ const MissionLogPage = () => {
       {/* Middle Column */}
       <div className="flex flex-col gap-4 w-2/4">
         <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center gap-4">
-            <button
-              className={`px-4 py-2 rounded ${middleSection === 'weekly' ? 'bg-blue-600 text-white' : 'bg-gray-600 text-gray-200'}`}
-              onClick={() => setMiddleSection('weekly')}
-            >
-              Weekly Tasks
-            </button>
-            <button
-              className={`px-4 py-2 rounded ${middleSection === 'monthly' ? 'bg-blue-600 text-white' : 'bg-gray-600 text-gray-200'}`}
-              onClick={() => setMiddleSection('monthly')}
-            >
-              Monthly Goals
-            </button>
+          <div className="flex flex-col gap-2">
+            <div className="text-sm text-gray-200">
+              {`Week ${selectedWeek} of ${formatMonthYear(selectedMonth)}`}
+            </div>
+            <div className="flex items-center gap-4">
+              <button
+                className={`px-4 py-2 rounded ${middleSection === 'weekly' ? 'bg-blue-600 text-white' : 'bg-gray-600 text-gray-200'}`}
+                onClick={() => setMiddleSection('weekly')}
+              >
+                Weekly Tasks
+              </button>
+              <button
+                className={`px-4 py-2 rounded ${middleSection === 'monthly' ? 'bg-blue-600 text-white' : 'bg-gray-600 text-gray-200'}`}
+                onClick={() => setMiddleSection('monthly')}
+              >
+                Monthly Goals
+              </button>
+              <button
+                className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 transition-colors"
+                onClick={() => {
+                  const today = new Date();
+                  setSelectedMonth(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`);
+                  setSelectedWeek(getCurrentWeekOfMonth());
+                  setMiddleSection('weekly');
+                }}
+              >
+                Current Week
+              </button>
+            </div>
           </div>
           {middleSection === 'weekly' && (
             <button className={BUTTON_STYLES} onClick={handleAddTask}>Add Task</button>
@@ -781,7 +817,7 @@ const MissionLogPage = () => {
                 <input
                   type="date"
                   className={SELECT_STYLES}
-                  value={selectedTask.dateAdded}
+                  value={selectedTask.dateAdded || new Date().toISOString().slice(0, 10)}
                   onChange={e => handlePropertiesChange('dateAdded', e.target.value)}
                 />
               </div>
@@ -863,7 +899,7 @@ const MissionLogPage = () => {
                 <input
                   type="date"
                   className={SELECT_STYLES}
-                  value={selectedGoal.dateAdded}
+                  value={selectedGoal.dateAdded || new Date().toISOString().slice(0, 10)}
                   onChange={e => handleGoalPropertiesChange('dateAdded', e.target.value)}
                 />
               </div>

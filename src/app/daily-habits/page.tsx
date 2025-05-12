@@ -14,6 +14,36 @@ const getFirstDayOfMonth = (year: number, month: number) => {
   return new Date(year, month, 1).getDay();
 };
 
+// Add this helper function after the existing helper functions
+const generateGradient = (habits: Array<{ color: string }>) => {
+  if (habits.length === 0) return 'none';
+  if (habits.length === 1) return habits[0].color;
+  
+  // Create a gradient string with all habit colors
+  const gradientColors = habits.map(habit => habit.color).join(', ');
+  return `linear-gradient(135deg, ${gradientColors})`;
+};
+
+// Add this constant at the top of the file after imports
+const BASIC_COLORS = [
+  '#FF0000', // Red
+  '#FF7F00', // Orange
+  '#FFFF00', // Yellow
+  '#00FF00', // Green
+  '#0000FF', // Blue
+  '#4B0082', // Indigo
+  '#9400D3', // Violet
+  '#FF1493', // Deep Pink
+  '#00FFFF', // Cyan
+  '#32CD32', // Lime Green
+  '#FFD700', // Gold
+  '#FF4500', // Orange Red
+  '#4169E1', // Royal Blue
+  '#8B4513', // Brown
+  '#808080', // Gray
+  '#000000', // Black
+];
+
 export default function DailyHabitsPage() {
   const router = useRouter();
   const { habits, toggleHabit, addHabit, removeHabit, updateHabit, archiveHabit, DEFAULT_ICONS } = useHabits();
@@ -71,9 +101,9 @@ export default function DailyHabitsPage() {
 
   return (
     <div className="min-h-screen bg-[#1a1a1a] text-white p-4">
-      <div className="max-w-[1440px] mx-auto h-[1024px] flex gap-4">
+      <div className="w-full h-[1024px] flex gap-4">
         {/* Left Column - Habits List */}
-        <div className="w-1/4 bg-[#818181] rounded-lg p-4 flex flex-col">
+        <div className="w-1/4 min-w-[260px] bg-[#818181] rounded-lg p-4 flex flex-col">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Active Habits</h2>
             <button
@@ -129,7 +159,7 @@ export default function DailyHabitsPage() {
         </div>
 
         {/* Center Column - Properties Panel */}
-        <div className="w-1/4 bg-[#818181] rounded-lg p-4">
+        <div className="w-1/4 min-w-[260px] bg-[#818181] rounded-lg p-4">
           {selectedHabit ? (
             <div className="space-y-4">
               <div>
@@ -157,6 +187,32 @@ export default function DailyHabitsPage() {
                       >
                         {icon}
                       </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Color</label>
+                <div className="bg-[#1a1a1a] p-3 rounded border border-gray-600">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div 
+                      className="w-6 h-6 rounded-full border border-gray-600"
+                      style={{ backgroundColor: selectedHabit.color }}
+                    />
+                    <span className="text-sm">{selectedHabit.color}</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {BASIC_COLORS.map((color) => (
+                      <button
+                        key={color}
+                        className={`w-8 h-8 rounded-full border border-gray-600 transition-transform hover:scale-110 ${
+                          selectedHabit.color === color ? 'ring-2 ring-blue-500' : ''
+                        }`}
+                        style={{ backgroundColor: color }}
+                        onClick={() => handleUpdateHabit({ color })}
+                        title={color}
+                      />
                     ))}
                   </div>
                 </div>
@@ -206,7 +262,7 @@ export default function DailyHabitsPage() {
         </div>
 
         {/* Right Column - Calendar */}
-        <div className="w-1/3 bg-[#818181] rounded-lg p-4">
+        <div className="flex-1 bg-[#818181] rounded-lg p-4">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Calendar</h2>
             <div className="flex gap-2">
@@ -243,13 +299,27 @@ export default function DailyHabitsPage() {
             {/* Calendar days */}
             {totalDays.map(day => {
               const habitsForDay = getHabitsForDate(day);
+              const gradient = generateGradient(habitsForDay);
+              const hasCompletedHabits = habitsForDay.length > 0;
+              
               return (
                 <div
                   key={day}
-                  className="aspect-square bg-[#1a1a1a] rounded p-1 relative"
+                  className={`aspect-square rounded p-1 relative group ${
+                    hasCompletedHabits ? '' : 'bg-[#1a1a1a]'
+                  }`}
                 >
                   <div className="text-sm mb-1">{day}</div>
-                  <div className="flex flex-wrap gap-1">
+                  {hasCompletedHabits && (
+                    <div 
+                      className="absolute inset-0 rounded transition-opacity group-hover:opacity-90"
+                      style={{ 
+                        background: gradient,
+                        opacity: 0.8
+                      }}
+                    />
+                  )}
+                  <div className="relative z-10 flex flex-wrap gap-1">
                     {habitsForDay.map(habit => (
                       <div
                         key={habit.id}
