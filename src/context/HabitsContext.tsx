@@ -129,10 +129,15 @@ const wasYesterdayCompleted = (history: CompletionRecord[]): boolean => {
 export function HabitsProvider({ children }: { children: React.ReactNode }) {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [isClient, setIsClient] = useState(false);
+  const [lastResetDate, setLastResetDate] = useState<string>('');
 
   useEffect(() => {
     setIsClient(true);
     const savedHabits = localStorage.getItem('habits');
+    const savedLastResetDate = localStorage.getItem('lastResetDate');
+    if (savedLastResetDate) {
+      setLastResetDate(savedLastResetDate);
+    }
     if (savedHabits) {
       try {
         // Migrate existing habits to include completionHistory and color
@@ -149,6 +154,26 @@ export function HabitsProvider({ children }: { children: React.ReactNode }) {
       }
     }
   }, []);
+
+  // Add new effect to handle daily reset
+  useEffect(() => {
+    if (!isClient) return;
+
+    const today = getTodayString();
+    
+    // Check if we need to reset (if last reset was not today)
+    if (lastResetDate !== today) {
+      setHabits(prevHabits => 
+        prevHabits.map(habit => ({
+          ...habit,
+          completed: false, // Reset completed state
+          // Keep all other properties including completionHistory
+        }))
+      );
+      setLastResetDate(today);
+      localStorage.setItem('lastResetDate', today);
+    }
+  }, [isClient, lastResetDate]);
 
   useEffect(() => {
     if (isClient) {
@@ -190,29 +215,13 @@ export function HabitsProvider({ children }: { children: React.ReactNode }) {
           // Ensure completionHistory exists
           const currentHistory = habit.completionHistory || [];
           
-          // Check if yesterday was completed
-          const yesterdayCompleted = wasYesterdayCompleted(currentHistory);
-          
-          // If completing today and yesterday wasn't completed, reset streak
-          if (completed && !yesterdayCompleted) {
-            return {
-              ...habit,
-              completed,
-              streakDays: 1, // Start new streak
-              completionHistory: [
-                { date: today, completed },
-                ...currentHistory.filter(record => record.date !== today)
-              ],
-            };
-          }
-          
           // Update completion history
           const updatedHistory = [
             { date: today, completed },
             ...currentHistory.filter(record => record.date !== today)
           ];
 
-          // Calculate new streak
+          // Calculate new streak based on the updated history
           const streakDays = calculateStreak(updatedHistory);
 
           return {
