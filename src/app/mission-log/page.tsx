@@ -1,6 +1,8 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { ATTRIBUTE_KEYS } from '@/components/LeftColumn';
+import { useXP } from '@/context/XPContext';
 
 // Types
 interface WeeklyGoal {
@@ -14,6 +16,8 @@ interface WeeklyGoal {
   project: string;
   dateAdded: string;
   dateCompleted?: string;
+  category?: string;
+  xpValue?: number;
 }
 
 interface MonthlyGoal {
@@ -27,6 +31,8 @@ interface MonthlyGoal {
   weeklyGoals: WeeklyGoal[];
   dateAdded: string;
   dateCompleted?: string;
+  category?: string;
+  xpValue?: number;
 }
 
 interface ProjectData {
@@ -131,6 +137,7 @@ const MissionLogPage = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedWeek, setSelectedWeek] = useState(getCurrentWeekOfMonth());
   const [showAllTasks, setShowAllTasks] = useState(false);
+  const { addXP, subtractXP } = useXP();
 
   useEffect(() => { 
     setMounted(true);
@@ -203,19 +210,38 @@ const MissionLogPage = () => {
     });
   };
   const handleGoalToggle = (id: string) => {
+    // First, find the goal and its current state
+    const goal = projects[project]?.monthlyGoals
+      .find((g: MonthlyGoal) => g.id === id);
+
+    if (!goal) {
+      console.warn('Goal not found:', id);
+      return;
+    }
+
+    const newCompleted = !goal.completed;
+    const xpCategory = goal.category;
+    const xpValue = Number(goal.xpValue);
+
+    console.log('Goal toggle debug:', {
+      goalId: id,
+      category: xpCategory,
+      xpValue: xpValue,
+      newCompleted: newCompleted
+    });
+
+    // Update the goal's completion status
     setProjects((prev: { [name: string]: ProjectData }) => {
-      if (!prev[project]) {
-        console.warn(`Project ${project} not found`);
+      if (!prev[project] || !prev[project].monthlyGoals) {
+        console.warn(`Project ${project} or its monthly goals not found`);
         return prev;
       }
-
       return {
         ...prev,
         [project]: {
           ...prev[project],
           monthlyGoals: prev[project].monthlyGoals.map((g: MonthlyGoal) => {
             if (g.id === id) {
-              const newCompleted = !g.completed;
               return {
                 ...g,
                 completed: newCompleted,
@@ -225,9 +251,29 @@ const MissionLogPage = () => {
             }
             return g;
           })
-        },
+        }
       };
     });
+
+    // Update XP if we have valid category and value
+    if (xpCategory && xpValue) {
+      console.log('Updating XP:', {
+        category: xpCategory,
+        value: xpValue,
+        isCompleted: newCompleted
+      });
+      if (newCompleted) {
+        addXP(xpCategory, xpValue);
+      } else {
+        subtractXP(xpCategory, xpValue);
+      }
+    } else {
+      console.warn('No XP category or value found for goal:', {
+        goalId: id,
+        category: xpCategory,
+        value: xpValue
+      });
+    }
   };
   const handleTaskChange = (id: string, field: 'text' | 'description', value: string) => {
     setProjects((prev: { [name: string]: ProjectData }) => {
@@ -251,12 +297,33 @@ const MissionLogPage = () => {
     });
   };
   const handleTaskToggle = (id: string) => {
+    // First, find the task and its current state
+    const task = projects[project]?.monthlyGoals
+      .flatMap((g: MonthlyGoal) => g.weeklyGoals)
+      .find((t: WeeklyGoal) => t.id === id);
+
+    if (!task) {
+      console.warn('Task not found:', id);
+      return;
+    }
+
+    const newCompleted = !task.completed;
+    const xpCategory = task.category;
+    const xpValue = Number(task.xpValue);
+
+    console.log('Task toggle debug:', {
+      taskId: id,
+      category: xpCategory,
+      xpValue: xpValue,
+      newCompleted: newCompleted
+    });
+
+    // Update the task's completion status
     setProjects((prev: { [name: string]: ProjectData }) => {
       if (!prev[project] || !prev[project].monthlyGoals) {
         console.warn(`Project ${project} or its monthly goals not found`);
         return prev;
       }
-
       return {
         ...prev,
         [project]: {
@@ -265,7 +332,6 @@ const MissionLogPage = () => {
             ...g,
             weeklyGoals: g.weeklyGoals.map((t: WeeklyGoal) => {
               if (t.id === id) {
-                const newCompleted = !t.completed;
                 return {
                   ...t,
                   completed: newCompleted,
@@ -275,10 +341,30 @@ const MissionLogPage = () => {
               }
               return t;
             })
-          }) as MonthlyGoal)
-        },
+          }))
+        }
       };
     });
+
+    // Update XP if we have valid category and value
+    if (xpCategory && xpValue) {
+      console.log('Updating XP:', {
+        category: xpCategory,
+        value: xpValue,
+        isCompleted: newCompleted
+      });
+      if (newCompleted) {
+        addXP(xpCategory, xpValue);
+      } else {
+        subtractXP(xpCategory, xpValue);
+      }
+    } else {
+      console.warn('No XP category or value found for task:', {
+        taskId: id,
+        category: xpCategory,
+        value: xpValue
+      });
+    }
   };
   const handleAddProject = () => {
     if (!newProjectName.trim() || projects[newProjectName]) return;
@@ -406,6 +492,14 @@ const MissionLogPage = () => {
               // If changing completion status, update completion date
               if (field === 'completed') {
                 updates.dateCompleted = value ? new Date().toISOString().slice(0, 10) : undefined;
+              }
+              
+              // If changing category, ensure it's a valid value
+              if (field === 'category') {
+                const validCategories = ["Body", "Mind", "Spirit", "Professionalism", "Creativity"] as const;
+                if (!value || !validCategories.includes(value as typeof validCategories[number])) {
+                  updates.category = undefined;
+                }
               }
               
               return { ...t, ...updates };
@@ -832,6 +926,31 @@ const MissionLogPage = () => {
                   />
                 </div>
               )}
+              <div>
+                <label className="block text-sm text-gray-200 mb-1">Category</label>
+                <select
+                  className={SELECT_STYLES}
+                  value={selectedTask.category || ''}
+                  onChange={e => handlePropertiesChange('category', e.target.value)}
+                >
+                  <option value="">Select category</option>
+                  {ATTRIBUTE_KEYS.map(key => (
+                    <option key={key} value={key}>{key}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-200 mb-1">XP Value (max 30)</label>
+                <input
+                  type="number"
+                  className={SELECT_STYLES}
+                  value={selectedTask.xpValue ?? ''}
+                  min={0}
+                  max={30}
+                  onChange={e => handlePropertiesChange('xpValue', Math.max(0, Math.min(30, Number(e.target.value))))}
+                  placeholder="XP"
+                />
+              </div>
               <div className="pt-4 border-t border-gray-600">
                 <button
                   onClick={handleDeleteTask}
@@ -914,6 +1033,31 @@ const MissionLogPage = () => {
                   />
                 </div>
               )}
+              <div>
+                <label className="block text-sm text-gray-200 mb-1">Category</label>
+                <select
+                  className={SELECT_STYLES}
+                  value={selectedGoal.category || ''}
+                  onChange={e => handleGoalPropertiesChange('category', e.target.value)}
+                >
+                  <option value="">Select category</option>
+                  {ATTRIBUTE_KEYS.map(key => (
+                    <option key={key} value={key}>{key}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-200 mb-1">XP Value (max 150)</label>
+                <input
+                  type="number"
+                  className={SELECT_STYLES}
+                  value={selectedGoal.xpValue ?? ''}
+                  min={0}
+                  max={150}
+                  onChange={e => handleGoalPropertiesChange('xpValue', String(Math.max(0, Math.min(150, Number(e.target.value)))))}
+                  placeholder="XP"
+                />
+              </div>
               <div className="pt-4 border-t border-gray-600">
                 <button
                   onClick={handleDeleteGoal}
