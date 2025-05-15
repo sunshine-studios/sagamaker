@@ -36,21 +36,44 @@ const XPContext = createContext<XPContextType | undefined>(undefined);
 export const XPProvider = ({ children }: { children: React.ReactNode }) => {
   const [xp, setXP] = useState<XPState>(defaultXP);
   const [levels, setLevels] = useState<LevelState>(defaultLevels);
+  const [isClient, setIsClient] = useState(false);
 
-  // Only update from localStorage after mount
+  // Set isClient to true after mount
   useEffect(() => {
-    const storedXP = localStorage.getItem(XP_LS_KEY);
-    if (storedXP) setXP(JSON.parse(storedXP));
-    const storedLevels = localStorage.getItem(LEVEL_LS_KEY);
-    if (storedLevels) setLevels(JSON.parse(storedLevels));
+    setIsClient(true);
   }, []);
 
+  // Only update from localStorage after mount and when isClient is true
   useEffect(() => {
-    localStorage.setItem(XP_LS_KEY, JSON.stringify(xp));
-  }, [xp]);
+    if (!isClient) return;
+    
+    try {
+      const storedXP = localStorage.getItem(XP_LS_KEY);
+      if (storedXP) setXP(JSON.parse(storedXP));
+      const storedLevels = localStorage.getItem(LEVEL_LS_KEY);
+      if (storedLevels) setLevels(JSON.parse(storedLevels));
+    } catch (error) {
+      console.error('Error loading XP data from localStorage:', error);
+    }
+  }, [isClient]);
+
   useEffect(() => {
-    localStorage.setItem(LEVEL_LS_KEY, JSON.stringify(levels));
-  }, [levels]);
+    if (!isClient) return;
+    try {
+      localStorage.setItem(XP_LS_KEY, JSON.stringify(xp));
+    } catch (error) {
+      console.error('Error saving XP data to localStorage:', error);
+    }
+  }, [xp, isClient]);
+
+  useEffect(() => {
+    if (!isClient) return;
+    try {
+      localStorage.setItem(LEVEL_LS_KEY, JSON.stringify(levels));
+    } catch (error) {
+      console.error('Error saving levels data to localStorage:', error);
+    }
+  }, [levels, isClient]);
 
   const addXP = (key: AttributeKey, amount: number) => {
     setXP(prev => {
