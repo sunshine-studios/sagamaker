@@ -56,6 +56,12 @@ const Header = () => {
                 >
                   Daily Habits
                 </button>
+                <button
+                  className="text-left px-6 py-3 text-white hover:bg-blue-700"
+                  onClick={() => { router.push('/skill-tree'); setMenuOpen(false); }}
+                >
+                  Skill Tree
+                </button>
               </div>
             </nav>
           </div>

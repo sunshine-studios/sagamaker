@@ -36,17 +36,10 @@ const XPContext = createContext<XPContextType | undefined>(undefined);
 export const XPProvider = ({ children }: { children: React.ReactNode }) => {
   const [xp, setXP] = useState<XPState>(defaultXP);
   const [levels, setLevels] = useState<LevelState>(defaultLevels);
-  const [isClient, setIsClient] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  // Set isClient to true after mount
+  // Initialize state from localStorage after mount
   useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  // Only update from localStorage after mount and when isClient is true
-  useEffect(() => {
-    if (!isClient) return;
-    
     try {
       const storedXP = localStorage.getItem(XP_LS_KEY);
       if (storedXP) setXP(JSON.parse(storedXP));
@@ -55,25 +48,27 @@ export const XPProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (error) {
       console.error('Error loading XP data from localStorage:', error);
     }
-  }, [isClient]);
+    setMounted(true);
+  }, []);
 
+  // Save to localStorage when state changes
   useEffect(() => {
-    if (!isClient) return;
+    if (!mounted) return;
     try {
       localStorage.setItem(XP_LS_KEY, JSON.stringify(xp));
     } catch (error) {
       console.error('Error saving XP data to localStorage:', error);
     }
-  }, [xp, isClient]);
+  }, [xp, mounted]);
 
   useEffect(() => {
-    if (!isClient) return;
+    if (!mounted) return;
     try {
       localStorage.setItem(LEVEL_LS_KEY, JSON.stringify(levels));
     } catch (error) {
       console.error('Error saving levels data to localStorage:', error);
     }
-  }, [levels, isClient]);
+  }, [levels, mounted]);
 
   const addXP = (key: AttributeKey, amount: number) => {
     setXP(prev => {
@@ -96,6 +91,11 @@ export const XPProvider = ({ children }: { children: React.ReactNode }) => {
       return { ...prev, [key]: newXP };
     });
   };
+
+  // Don't render children until after mount to avoid hydration mismatch
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <XPContext.Provider value={{ xp, levels, addXP, subtractXP, setXP, setLevels }}>
