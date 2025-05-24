@@ -1,22 +1,49 @@
 'use client';
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 
 const Header = () => {
   const router = useRouter();
+  const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const isSkillTreePage = pathname === '/skill-tree';
 
   return (
     <div className="relative z-20">
-      <div className="flex items-center bg-[#22223b] px-4 py-3 shadow-md">
-        <button
-          className="text-white text-2xl mr-4 focus:outline-none"
-          onClick={() => setMenuOpen(true)}
-          aria-label="Open menu"
-        >
-          &#9776;
-        </button>
-        <span className="text-white text-lg font-bold tracking-wide">Saga Maker</span>
+      <div className="flex items-center justify-between bg-[#22223b] px-4 py-3 shadow-md">
+        <div className="flex items-center">
+          <button
+            className="text-white text-2xl mr-4 focus:outline-none"
+            onClick={() => setMenuOpen(true)}
+            aria-label="Open menu"
+          >
+            &#9776;
+          </button>
+          <span className="text-white text-lg font-bold tracking-wide">Saga Maker</span>
+        </div>
+        {isSkillTreePage && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                const event = new CustomEvent('clearSkillTree');
+                window.dispatchEvent(event);
+              }}
+              className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-1 rounded-lg shadow-lg text-sm"
+            >
+              Clear Skills
+            </button>
+            <button
+              onClick={() => {
+                const event = new CustomEvent('resetSkillTreeView');
+                window.dispatchEvent(event);
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1 rounded-lg shadow-lg text-sm"
+            >
+              Reset View
+            </button>
+          </div>
+        )}
       </div>
       {/* Side Menu Overlay */}
       {menuOpen && (
