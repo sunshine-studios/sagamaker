@@ -24,6 +24,9 @@ const CIRCLE_RADIUS = 200;
 const NODE_RADIUS = 40;
 const MIN_DISTANCE = NODE_RADIUS * 2 + 10; // Minimum distance between nodes
 
+// Local storage key
+const STORAGE_KEY = 'skillTreeData';
+
 function getCirclePosition(index: number, total: number, center: { x: number; y: number }) {
   const angle = (2 * Math.PI * index) / total - Math.PI / 2;
   return {
@@ -52,38 +55,97 @@ function getOutwardPosition(parent: CategoryNode, angle: number, nodes: Category
   return { x, y };
 }
 
+// Initialize default nodes
+function getDefaultNodes(): CategoryNode[] {
+  return CATEGORIES.map((cat, i) => {
+    const pos = getCirclePosition(i, CATEGORIES.length, SVG_CENTER);
+    return { ...cat, x: pos.x, y: pos.y };
+  });
+}
+
 export default function SkillTreeCanvas() {
   const [nodes, setNodes] = useState<CategoryNode[]>([]);
   const [categoryAngles, setCategoryAngles] = useState<{ [id: string]: number }>({});
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const transformRef = useRef<ReactZoomPanPinchRef | null>(null);
 
-  // Always recalculate node positions based on SVG_CENTER
+  // Load data from local storage on initial render
   useEffect(() => {
-    const nodesWithAngles = CATEGORIES.map((cat, i) => {
-      const pos = getCirclePosition(i, CATEGORIES.length, SVG_CENTER);
-      return { ...cat, x: pos.x, y: pos.y };
-    });
-    setNodes(nodesWithAngles);
-    // Store angles for each category for outward placement
+    const loadData = () => {
+      try {
+        const savedData = localStorage.getItem(STORAGE_KEY);
+        if (savedData) {
+          const { nodes: savedNodes, nodeIdCounter: savedCounter } = JSON.parse(savedData);
+          if (Array.isArray(savedNodes) && savedNodes.length > 0) {
+            setNodes(savedNodes);
+            nodeIdCounter = savedCounter;
+          } else {
+            setNodes(getDefaultNodes());
+          }
+        } else {
+          setNodes(getDefaultNodes());
+        }
+      } catch (error) {
+        console.error('Error loading skill tree data:', error);
+        setNodes(getDefaultNodes());
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  // Save to local storage whenever nodes change
+  useEffect(() => {
+    if (!isLoading && nodes.length > 0) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          nodes,
+          nodeIdCounter
+        }));
+      } catch (error) {
+        console.error('Error saving skill tree data:', error);
+      }
+    }
+  }, [nodes, isLoading]);
+
+  // Initialize category angles
+  useEffect(() => {
     const angles: { [id: string]: number } = {};
     CATEGORIES.forEach((cat, i) => {
       angles[cat.id] = getCirclePosition(i, CATEGORIES.length, SVG_CENTER).angle;
     });
     setCategoryAngles(angles);
-    // Center the SVG on initial load
-    setTimeout(() => {
-      if (transformRef.current) {
-        const { innerWidth, innerHeight } = window;
-        transformRef.current.setTransform(
-          innerWidth / 2 - SVG_CENTER.x,
-          innerHeight / 2 - SVG_CENTER.y,
-          1,
-          0
-        );
-      }
-    }, 100);
   }, []);
+
+  // Center the SVG on initial load
+  useEffect(() => {
+    if (!isLoading) {
+      setTimeout(() => {
+        if (transformRef.current) {
+          const { innerWidth, innerHeight } = window;
+          transformRef.current.setTransform(
+            innerWidth / 2 - SVG_CENTER.x,
+            innerHeight / 2 - SVG_CENTER.y,
+            1,
+            0
+          );
+        }
+      }, 100);
+    }
+  }, [isLoading]);
+
+  // Reset skill tree
+  const handleReset = () => {
+    if (window.confirm('Are you sure you want to reset the skill tree? This will delete all custom skills.')) {
+      localStorage.removeItem(STORAGE_KEY);
+      setNodes(getDefaultNodes());
+      nodeIdCounter = 1;
+      setSelectedNodeId(null);
+    }
+  };
 
   // Add child node
   const handleAddChild = (parentId: string) => {
@@ -150,77 +212,85 @@ export default function SkillTreeCanvas() {
   return (
     <>
       <div className="fixed inset-0 w-screen h-screen z-0 bg-gradient-to-br from-blue-900 to-gray-900">
-        <TransformWrapper
-          ref={transformRef}
-          minScale={0.05}
-          maxScale={2}
-          initialScale={1}
-          initialPositionX={0}
-          initialPositionY={0}
-          wheel={{ step: 0.1 }}
-          doubleClick={{ disabled: true }}
-          panning={{ velocityDisabled: true }}
-          limitToBounds={false}
+        <button
+          onClick={handleReset}
+          className="fixed top-4 left-4 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg shadow-lg z-50"
         >
-          <TransformComponent>
-            <svg
-              width={SVG_WIDTH}
-              height={SVG_HEIGHT}
-              style={{ background: 'rgba(8,54,118,0.1)' }}
-            >
-              {lines}
-              {nodes.map((node) => (
-                <g key={node.id}>
-                  <circle
-                    cx={node.x}
-                    cy={node.y}
-                    r={NODE_RADIUS}
-                    fill="#fff"
-                    stroke="#3b82f6"
-                    strokeWidth={4}
-                    style={{ filter: "drop-shadow(0 2px 8px #0003)" }}
-                    pointerEvents="none"
-                    onClick={() => {
-                      if (node.parentId) setSelectedNodeId(node.id);
-                    }}
-                  />
-                  <text
-                    x={node.x}
-                    y={node.y}
-                    textAnchor="middle"
-                    alignmentBaseline="middle"
-                    className="font-bold text-lg"
-                    fill="#1e3a8a"
-                    style={{ pointerEvents: "none", fontSize: 18 }}
-                  >
-                    {node.name}
-                  </text>
-                  {/* Show + button for root nodes only */}
-                  {!node.parentId && (
-                    <foreignObject
-                      x={node.x - 14}
-                      y={node.y + NODE_RADIUS}
-                      width={28}
-                      height={28}
+          Reset Skill Tree
+        </button>
+        {!isLoading && (
+          <TransformWrapper
+            ref={transformRef}
+            minScale={0.05}
+            maxScale={2}
+            initialScale={1}
+            initialPositionX={0}
+            initialPositionY={0}
+            wheel={{ step: 0.1 }}
+            doubleClick={{ disabled: true }}
+            panning={{ velocityDisabled: true }}
+            limitToBounds={false}
+          >
+            <TransformComponent>
+              <svg
+                width={SVG_WIDTH}
+                height={SVG_HEIGHT}
+                style={{ background: 'rgba(8,54,118,0.1)' }}
+              >
+                {lines}
+                {nodes.map((node) => (
+                  <g key={node.id}>
+                    <circle
+                      cx={node.x}
+                      cy={node.y}
+                      r={NODE_RADIUS}
+                      fill="#fff"
+                      stroke="#3b82f6"
+                      strokeWidth={4}
+                      style={{ filter: "drop-shadow(0 2px 8px #0003)" }}
+                      pointerEvents="none"
+                      onClick={() => {
+                        if (node.parentId) setSelectedNodeId(node.id);
+                      }}
+                    />
+                    <text
+                      x={node.x}
+                      y={node.y}
+                      textAnchor="middle"
+                      alignmentBaseline="middle"
+                      className="font-bold text-lg"
+                      fill="#1e3a8a"
+                      style={{ pointerEvents: "none", fontSize: 18 }}
                     >
-                      <button
-                        className="bg-blue-500 text-white rounded-full w-7 h-7 flex items-center justify-center shadow border-2 border-white hover:bg-blue-600"
-                        style={{ fontSize: 20, zIndex: 3 }}
-                        onClick={e => {
-                          e.stopPropagation();
-                          handleAddChild(node.id);
-                        }}
-                        title="Add child skill"
+                      {node.name}
+                    </text>
+                    {/* Show + button for root nodes only */}
+                    {!node.parentId && (
+                      <foreignObject
+                        x={node.x - 14}
+                        y={node.y + NODE_RADIUS}
+                        width={28}
+                        height={28}
                       >
-                        +
-                      </button>
-                    </foreignObject>
-                  )}
-                </g>
-              ))}
-            </svg>
-          </TransformComponent>
-        </TransformWrapper>
+                        <button
+                          className="bg-blue-500 text-white rounded-full w-7 h-7 flex items-center justify-center shadow border-2 border-white hover:bg-blue-600"
+                          style={{ fontSize: 20, zIndex: 3 }}
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleAddChild(node.id);
+                          }}
+                          title="Add child skill"
+                        >
+                          +
+                        </button>
+                      </foreignObject>
+                    )}
+                  </g>
+                ))}
+              </svg>
+            </TransformComponent>
+          </TransformWrapper>
+        )}
       </div>
       {/* Side panel for editing node name */}
       {selectedNode && (
