@@ -7,7 +7,8 @@ interface CategoryNode {
   x: number;
   y: number;
   parentId?: string;
-  rootCategory?: string;  // Track which root category this node belongs to
+  rootCategory?: string;
+  emoji?: string;
 }
 
 const CATEGORIES: Omit<CategoryNode, "x" | "y">[] = [
@@ -18,12 +19,22 @@ const CATEGORIES: Omit<CategoryNode, "x" | "y">[] = [
   { id: "category-creativity", name: "Creativity" },
 ];
 
+const EMOJIS = [
+  "⚔️", "🛡️", "🏃", "💪", "🧠", "📚", "🎨", "🎭", "🎮", "🎲",
+  "🎯", "🎪", "🧘", "🏋️", "🤸", "🎭", "🎨", "🎼", "🎸", "🎺",
+  "🎻", "🎹", "🎤", "📷", "🎥", "💻", "📱", "🔧", "⚡", "💡"
+];
+
 const SVG_WIDTH = 5000;
 const SVG_HEIGHT = 5000;
 const SVG_CENTER = { x: SVG_WIDTH / 2, y: SVG_HEIGHT / 2 };
 const CIRCLE_RADIUS = 200;
-const NODE_RADIUS = 40;
-const MIN_DISTANCE = NODE_RADIUS * 2 + 10; // Minimum distance between nodes
+const NODE_RADIUS = 60;
+const MIN_DISTANCE = NODE_RADIUS * 2.5 + 20;
+const MAX_TEXT_LENGTH = NODE_RADIUS * 1.6; // Reduced max text length
+const BASE_FONT_SIZE = 14; // Reduced base font size
+const SECTOR_ANGLE = (2 * Math.PI) / CATEGORIES.length;
+const MAX_LINES = 3;
 
 // Local storage key
 const STORAGE_KEY = 'skillTreeData';
@@ -37,15 +48,28 @@ function getCirclePosition(index: number, total: number, center: { x: number; y:
   };
 }
 
-function calculateChildAngle(parentNode: CategoryNode, existingChildren: CategoryNode[], baseAngle: number): number {
-  if (existingChildren.length === 0) {
-    return baseAngle;
+function calculateChildAngle(parentNode: CategoryNode, existingChildren: CategoryNode[], baseAngle: number, isRootCategory: boolean = false): number {
+  if (!isRootCategory) {
+    // For skill nodes, use simple incremental spacing
+    const angleIncrement = Math.PI / 4; // 45 degrees apart
+    return baseAngle + (existingChildren.length * angleIncrement);
   }
 
-  // For subsequent children, distribute them evenly around the parent
-  // Starting from the base angle and adding increments
-  const angleIncrement = (2 * Math.PI) / 8; // Divide circle into 8 segments for spacing
-  return baseAngle + (existingChildren.length * angleIncrement);
+  // For root categories, constrain children to the category's sector
+  const sectorHalfAngle = SECTOR_ANGLE / 2;
+  const sectorStartAngle = baseAngle - sectorHalfAngle;
+  const sectorEndAngle = baseAngle + sectorHalfAngle;
+  
+  if (existingChildren.length === 0) {
+    return baseAngle; // First child goes straight out
+  }
+
+  // Distribute children evenly within the sector
+  const numSlots = 5; // Number of possible positions within sector
+  const slotAngle = SECTOR_ANGLE / numSlots;
+  const childSlot = existingChildren.length % numSlots;
+  
+  return sectorStartAngle + (childSlot * slotAngle) + (slotAngle / 2);
 }
 
 // Generate a unique ID with timestamp and random number
@@ -55,8 +79,11 @@ function generateUniqueId(prefix: string = 'node'): string {
 
 let nodeIdCounter = 1;
 
-function getOutwardPosition(parent: CategoryNode, angle: number, nodes: CategoryNode[], attempt = 1): { x: number; y: number } {
-  const distance = 120 + attempt * 30;  // Base distance from parent
+function getOutwardPosition(parent: CategoryNode, angle: number, nodes: CategoryNode[], isRootCategory: boolean = false, attempt = 1): { x: number; y: number } {
+  // Base distance depends on whether it's from root or from a skill node
+  const baseDistance = isRootCategory ? 150 : 120;
+  const distance = baseDistance + (attempt * 40);
+  
   const x = parent.x + distance * Math.cos(angle);
   const y = parent.y + distance * Math.sin(angle);
   
@@ -64,10 +91,19 @@ function getOutwardPosition(parent: CategoryNode, angle: number, nodes: Category
   for (const n of nodes) {
     const dx = n.x - x;
     const dy = n.y - y;
-    if (Math.sqrt(dx * dx + dy * dy) < MIN_DISTANCE) {
-      return getOutwardPosition(parent, angle, nodes, attempt + 1);
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < MIN_DISTANCE) {
+      // If collision detected, try further out or slightly adjust angle
+      if (attempt < 5) {
+        return getOutwardPosition(parent, angle, nodes, isRootCategory, attempt + 1);
+      } else {
+        // After 5 attempts, try adjusting the angle slightly
+        const adjustedAngle = angle + (Math.random() - 0.5) * 0.5;
+        return getOutwardPosition(parent, adjustedAngle, nodes, isRootCategory, 1);
+      }
     }
   }
+  
   return { x, y };
 }
 
@@ -77,6 +113,32 @@ function getDefaultNodes(): CategoryNode[] {
     const pos = getCirclePosition(CATEGORIES.indexOf(cat), CATEGORIES.length, SVG_CENTER);
     return { ...cat, x: pos.x, y: pos.y };
   });
+}
+
+// Calculate the appropriate font size based on text length and line count
+function calculateFontSize(text: string): number {
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  if (!context) return BASE_FONT_SIZE;
+
+  context.font = `${BASE_FONT_SIZE}px Inter`;
+  
+  // Split text into lines (handle both manual line breaks and word wrapping)
+  const lines = text.split('\n');
+  const lineCount = Math.max(1, lines.length);
+  
+  // Find the longest line
+  const maxLineWidth = Math.max(...lines.map(line => context.measureText(line).width));
+  
+  if (maxLineWidth <= MAX_TEXT_LENGTH) {
+    // If text fits within max width, adjust based on line count
+    return Math.min(BASE_FONT_SIZE, BASE_FONT_SIZE * (1 / lineCount));
+  }
+  
+  // Scale down the font size to fit the longest line
+  const scaledSize = Math.floor(BASE_FONT_SIZE * (MAX_TEXT_LENGTH / maxLineWidth));
+  // Further reduce size if we have multiple lines
+  return Math.min(scaledSize, BASE_FONT_SIZE * (1 / lineCount));
 }
 
 export default function SkillTreeCanvas() {
@@ -179,7 +241,7 @@ export default function SkillTreeCanvas() {
 
   // Add child node to any node
   const handleAddChild = (parentId: string) => {
-    console.log('Adding child to parent:', parentId); // Debug log
+    console.log('Adding child to parent:', parentId);
     const parent = nodes.find((n) => n.id === parentId);
     if (!parent) {
       console.log('Parent not found:', parentId);
@@ -188,39 +250,53 @@ export default function SkillTreeCanvas() {
 
     // Find existing children of this specific parent
     const existingChildren = nodes.filter(node => node.parentId === parentId);
-    console.log('Existing children count:', existingChildren.length); // Debug log
+    console.log('Existing children count:', existingChildren.length);
 
     let angle;
-    if (!parent.parentId) {
+    const isRootCategory = !parent.parentId;
+    
+    if (isRootCategory) {
       // For root category nodes
       console.log('Adding to root category:', parent.name);
       const categoryIndex = CATEGORIES.findIndex(cat => cat.id === parent.id);
       const baseAngle = (2 * Math.PI * categoryIndex) / CATEGORIES.length - Math.PI / 2;
-      angle = calculateChildAngle(parent, existingChildren, baseAngle);
+      angle = calculateChildAngle(parent, existingChildren, baseAngle, true);
     } else {
-      // For skill nodes (non-root)
-      console.log('Adding to skill node:', parent.name);
-      const grandParent = nodes.find(n => n.id === parent.parentId);
-      if (grandParent) {
-        angle = Math.atan2(parent.y - grandParent.y, parent.x - grandParent.x);
-        angle += (Math.random() - 0.5) * Math.PI / 2;
+      // For skill nodes, find the root category to stay within its sector
+      const rootCategory = nodes.find(n => n.id === parent.rootCategory);
+      if (rootCategory) {
+        const categoryIndex = CATEGORIES.findIndex(cat => cat.id === rootCategory.id);
+        const baseCategoryAngle = (2 * Math.PI * categoryIndex) / CATEGORIES.length - Math.PI / 2;
+        
+        // Calculate angle based on parent-child relationship but constrain to sector
+        const parentToGrandparentAngle = Math.atan2(parent.y - rootCategory.y, parent.x - rootCategory.x);
+        angle = calculateChildAngle(parent, existingChildren, parentToGrandparentAngle, false);
+        
+        // Ensure angle stays within the category's sector
+        const sectorHalfAngle = SECTOR_ANGLE / 2;
+        const sectorStart = baseCategoryAngle - sectorHalfAngle;
+        const sectorEnd = baseCategoryAngle + sectorHalfAngle;
+        
+        // Normalize angle to sector bounds
+        if (angle < sectorStart) angle = sectorStart + 0.1;
+        if (angle > sectorEnd) angle = sectorEnd - 0.1;
       } else {
         angle = Math.random() * 2 * Math.PI;
       }
     }
 
-    const { x, y } = getOutwardPosition(parent, angle, nodes);
+    const { x, y } = getOutwardPosition(parent, angle, nodes, isRootCategory);
     
     const newNode: CategoryNode = {
       id: generateUniqueId('skill'),
       name: "New Skill",
       x,
       y,
-      parentId: parentId, // Explicitly set to the parentId parameter
+      parentId: parentId,
       rootCategory: parent.parentId ? parent.rootCategory : parent.id
     };
 
-    console.log('Creating new node:', newNode); // Debug log
+    console.log('Creating new node:', newNode);
 
     setNodes((prev) => [...prev, newNode]);
     setSelectedNodeId(newNode.id);
@@ -239,9 +315,19 @@ export default function SkillTreeCanvas() {
     }, 100);
   };
 
-  // Update node name
+  // Update node name with support for line breaks
   const handleNodeNameChange = (id: string, newName: string) => {
+    // Limit to MAX_LINES number of lines
+    const lines = newName.split('\n');
+    if (lines.length > MAX_LINES) {
+      newName = lines.slice(0, MAX_LINES).join('\n');
+    }
     setNodes((prev) => prev.map(n => n.id === id ? { ...n, name: newName } : n));
+  };
+
+  // Update node emoji
+  const handleEmojiChange = (nodeId: string, emoji: string) => {
+    setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, emoji } : n));
   };
 
   // Draw lines from each child to its parent
@@ -286,6 +372,38 @@ export default function SkillTreeCanvas() {
     return () => window.removeEventListener('resetSkillTreeView', handleResetView);
   }, []);
 
+  // Delete node and all its children recursively
+  const handleDeleteNode = (nodeId: string) => {
+    const nodeToDelete = nodes.find(n => n.id === nodeId);
+    if (!nodeToDelete) return;
+
+    // Don't allow deleting root category nodes
+    if (!nodeToDelete.parentId) {
+      alert("Cannot delete root category nodes");
+      return;
+    }
+
+    if (window.confirm(`Are you sure you want to delete "${nodeToDelete.name}" and all its child skills?`)) {
+      // Recursive function to get all child node IDs
+      const getChildNodeIds = (parentId: string): string[] => {
+        const childNodes = nodes.filter(n => n.parentId === parentId);
+        return childNodes.reduce((acc, child) => {
+          return [...acc, child.id, ...getChildNodeIds(child.id)];
+        }, [] as string[]);
+      };
+
+      // Get all child nodes that need to be deleted
+      const childNodeIds = getChildNodeIds(nodeId);
+      
+      // Delete the node and all its children
+      setNodes(prev => prev.filter(node => 
+        node.id !== nodeId && !childNodeIds.includes(node.id)
+      ));
+      
+      setSelectedNodeId(null);
+    }
+  };
+
   return (
     <>
       <div className="fixed inset-0 w-screen h-screen z-0 bg-gradient-to-br from-blue-900 to-gray-900">
@@ -317,74 +435,153 @@ export default function SkillTreeCanvas() {
                 style={{ background: 'rgba(8,54,118,0.1)' }}
               >
                 {lines}
-                {nodes.map((node) => (
-                  <g key={node.id}>
-                    <circle
-                      cx={node.x}
-                      cy={node.y}
-                      r={NODE_RADIUS}
-                      fill="#fff"
-                      stroke={node.parentId ? "#3b82f6" : "#4c1d95"}  // Different color for root nodes
-                      strokeWidth={4}
-                      style={{ filter: "drop-shadow(0 2px 8px #0003)" }}
-                      pointerEvents="none"
-                      onClick={() => {
-                        if (node.parentId) setSelectedNodeId(node.id);
-                      }}
-                    />
-                    <text
-                      x={node.x}
-                      y={node.y}
-                      textAnchor="middle"
-                      alignmentBaseline="middle"
-                      className="font-bold text-lg"
-                      fill={node.parentId ? "#1e3a8a" : "#4c1d95"}
-                      style={{ pointerEvents: "none", fontSize: 18 }}
-                    >
-                      {node.name}
-                    </text>
-                    {/* Add skill button for all nodes */}
-                    <foreignObject
-                      x={node.x - 14}
-                      y={node.y + NODE_RADIUS}
-                      width={28}
-                      height={28}
-                    >
-                      <button
-                        className="bg-blue-500 text-white rounded-full w-7 h-7 flex items-center justify-center shadow border-2 border-white hover:bg-blue-600"
-                        style={{ fontSize: 20, zIndex: 3 }}
-                        onClick={e => {
-                          e.stopPropagation();
-                          handleAddChild(node.id);
-                        }}
-                        title="Add child skill"
+                {nodes.map((node) => {
+                  const fontSize = calculateFontSize(node.name);
+                  return (
+                    <g key={node.id}>
+                      <circle
+                        cx={node.x}
+                        cy={node.y}
+                        r={NODE_RADIUS}
+                        fill="#fff"
+                        stroke={node.parentId ? "#3b82f6" : "#4c1d95"}
+                        strokeWidth={4}
+                        style={{ filter: "drop-shadow(0 2px 8px #0003)", cursor: 'pointer' }}
+                        onClick={() => setSelectedNodeId(node.id)}
+                        className="hover:brightness-90 transition-all"
+                      />
+                      {/* Background circle for emoji */}
+                      <circle
+                        cx={node.x}
+                        cy={node.y}
+                        r={NODE_RADIUS * 0.5}
+                        fill="rgba(255,255,255,0.6)"
+                        onClick={() => setSelectedNodeId(node.id)}
+                      />
+                      {/* Emoji */}
+                      <text
+                        x={node.x}
+                        y={node.y}
+                        textAnchor="middle"
+                        alignmentBaseline="middle"
+                        className="select-none"
+                        style={{ fontSize: 32, cursor: 'pointer' }}
+                        onClick={() => setSelectedNodeId(node.id)}
                       >
-                        +
-                      </button>
-                    </foreignObject>
-                  </g>
-                ))}
+                        {node.emoji || "⭐"}
+                      </text>
+                      {/* Node Name with dynamic font size */}
+                      <foreignObject
+                        x={node.x - NODE_RADIUS * 0.8}
+                        y={node.y + NODE_RADIUS * 0.2}
+                        width={NODE_RADIUS * 1.6}
+                        height={NODE_RADIUS * 0.8}
+                      >
+                        <div
+                          className="w-full h-full flex items-center justify-center"
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => setSelectedNodeId(node.id)}
+                        >
+                          <p
+                            className={`font-bold select-none text-center leading-tight ${
+                              node.parentId ? 'text-[#1e3a8a]' : 'text-[#4c1d95]'
+                            }`}
+                            style={{
+                              fontSize: `${fontSize}px`,
+                              wordWrap: 'break-word',
+                              whiteSpace: 'pre-wrap',
+                              overflow: 'hidden',
+                              display: '-webkit-box',
+                              WebkitLineClamp: '3',
+                              WebkitBoxOrient: 'vertical',
+                              lineHeight: '1.2',
+                              maxHeight: `${NODE_RADIUS * 0.75}px`,
+                            }}
+                          >
+                            {node.name}
+                          </p>
+                        </div>
+                      </foreignObject>
+                      {/* Add skill button */}
+                      <foreignObject
+                        x={node.x - 14}
+                        y={node.y + NODE_RADIUS - 5}
+                        width={28}
+                        height={28}
+                      >
+                        <button
+                          className="bg-blue-500 text-white rounded-full w-7 h-7 flex items-center justify-center shadow border-2 border-white hover:bg-blue-600"
+                          style={{ fontSize: 20, zIndex: 3 }}
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleAddChild(node.id);
+                          }}
+                          title="Add child skill"
+                        >
+                          +
+                        </button>
+                      </foreignObject>
+                    </g>
+                  );
+                })}
               </svg>
             </TransformComponent>
           </TransformWrapper>
         )}
       </div>
-      {/* Side panel for editing node name */}
-      {selectedNode && (
+      {/* Properties panel */}
+      {selectedNodeId && (
         <div className="fixed top-10 right-10 w-96 bg-[#22223b] rounded-lg shadow-lg border border-gray-700 p-6 z-50">
-          <button className="absolute top-2 right-2 text-gray-400 hover:text-white" onClick={() => setSelectedNodeId(null)}>✕</button>
-          <h2 className="text-xl font-semibold mb-4 text-white">Edit Skill</h2>
-          <div className="mb-2">
+          <button 
+            className="absolute top-2 right-2 text-gray-400 hover:text-white" 
+            onClick={() => setSelectedNodeId(null)}
+          >
+            ✕
+          </button>
+          <h2 className="text-xl font-semibold mb-4 text-white">
+            {nodes.find(n => n.id === selectedNodeId)?.parentId ? 'Edit Skill' : 'Category Settings'}
+          </h2>
+          <div className="mb-4">
             <label className="block text-sm font-semibold text-gray-300 mb-1">Name</label>
-            <input
-              className="w-full border border-gray-600 bg-[#2a2a40] text-white rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-              value={selectedNode.name}
-              onChange={e => handleNodeNameChange(selectedNode.id, e.target.value)}
+            <textarea
+              className="w-full border border-gray-600 bg-[#2a2a40] text-white rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+              value={nodes.find(n => n.id === selectedNodeId)?.name || ''}
+              onChange={e => handleNodeNameChange(selectedNodeId, e.target.value)}
+              rows={3}
+              placeholder="Enter skill name (up to 3 lines)"
+              style={{ minHeight: '4.5rem' }}
             />
           </div>
-          <div className="text-sm text-gray-400 mt-4">
-            Category: {selectedNode.rootCategory ? CATEGORIES.find(c => c.id === selectedNode.rootCategory)?.name : 'Unknown'}
+          <div className="mb-4">
+            <label className="block text-sm font-semibold text-gray-300 mb-1">Icon</label>
+            <div className="grid grid-cols-6 gap-2 max-h-40 overflow-y-auto p-2 bg-[#2a2a40] rounded border border-gray-600">
+              {EMOJIS.map((emoji, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleEmojiChange(selectedNodeId, emoji)}
+                  className={`text-2xl p-2 rounded hover:bg-gray-600 transition-colors ${
+                    nodes.find(n => n.id === selectedNodeId)?.emoji === emoji ? 'bg-gray-600' : ''
+                  }`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
           </div>
+          <div className="text-sm text-gray-400 mb-4">
+            Category: {nodes.find(n => n.id === selectedNodeId)?.rootCategory ? 
+              CATEGORIES.find(c => c.id === nodes.find(n => n.id === selectedNodeId)?.rootCategory)?.name : 
+              'Root Category'
+            }
+          </div>
+          {nodes.find(n => n.id === selectedNodeId)?.parentId && (
+            <button
+              onClick={() => handleDeleteNode(selectedNodeId)}
+              className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg shadow-lg mt-2"
+            >
+              Delete Skill
+            </button>
+          )}
         </div>
       )}
     </>
