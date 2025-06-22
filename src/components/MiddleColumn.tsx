@@ -103,7 +103,7 @@ const MiddleColumn = () => {
 
   return (
     <div className="flex-1 p-4 space-y-6">
-      <div className="bg-[#818181] rounded-lg p-4">
+      <div className="bg-transparent rounded-lg p-4">
         <div className="flex justify-between items-center mb-2">
           <h2 className="text-lg font-semibold text-white">Daily Habits</h2>
           <button
@@ -139,7 +139,7 @@ const MiddleColumn = () => {
               key={habit.id}
               onClick={() => toggleHabit(habit.id)}
               className={`px-1 py-2 border rounded text-lg ${
-                habit.completed ? "bg-blue-500 text-white" : "bg-[#818181] text-white border-gray-600"
+                habit.completed ? "bg-blue-500 text-white" : "bg-transparent text-white border-gray-600"
               }`}
             >
               {habit.icon}

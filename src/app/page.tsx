@@ -42,7 +42,21 @@ export default function Home() {
   return (
     <main className="min-h-screen p-8">
       <div className="w-full">
-        <div className="bg-[#083676] backdrop-blur-lg rounded-xl p-6 border border-blue-500/20 w-full">
+        <div className="backdrop-blur-lg rounded-xl p-6 border border-blue-500/20 w-full relative" style={{
+          background: 'rgba(0, 0, 0, 0.1)'
+        }}>
+          {/* Video Background - only for main content */}
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover rounded-xl"
+            style={{ zIndex: -1 }}
+          >
+            <source src="/main_background_v01_1.webm" type="video/webm" />
+          </video>
+          
           <div className="flex flex-row gap-[15px] w-full min-h-[80vh] items-stretch justify-center">
             <div className="w-[400px] min-w-[300px] flex flex-col">
               <LeftColumn attributes={levels} setAttributes={() => {}} />

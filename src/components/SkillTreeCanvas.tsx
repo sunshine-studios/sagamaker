@@ -181,6 +181,8 @@ export default function SkillTreeCanvas() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
           nodes
         }));
+        // Dispatch custom event to update preview
+        window.dispatchEvent(new CustomEvent('skillTreeUpdated'));
       } catch (error) {
         console.error('Error saving skill tree data:', error);
       }
@@ -219,6 +221,8 @@ export default function SkillTreeCanvas() {
       localStorage.removeItem(STORAGE_KEY);
       setNodes(getDefaultNodes());
       setSelectedNodeId(null);
+      // Dispatch custom event to update preview
+      window.dispatchEvent(new CustomEvent('skillTreeUpdated'));
     }
   };
 
@@ -232,6 +236,8 @@ export default function SkillTreeCanvas() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
           nodes: defaultNodes
         }));
+        // Dispatch custom event to update preview
+        window.dispatchEvent(new CustomEvent('skillTreeUpdated'));
       }
     };
 

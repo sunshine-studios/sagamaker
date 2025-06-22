@@ -141,7 +141,7 @@ const LeftColumn = ({ attributes, setAttributes }: { attributes: Attributes, set
       </div>
 
       {/* Attributes Radar Chart */}
-      <div className="bg-[#818181] rounded-lg flex-1 min-h-0 w-full flex flex-col justify-center items-center relative p-4">
+      <div className="bg-transparent rounded-lg flex-1 min-h-0 w-full flex flex-col justify-center items-center relative p-4">
         <span className="text-white font-semibold mb-2">Attributes</span>
         <div className="relative flex items-center justify-center w-[420px] h-[420px]">
           <PentagonFrame size={420} color="#e0e7ef">
