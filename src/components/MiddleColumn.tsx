@@ -103,102 +103,146 @@ const MiddleColumn = () => {
 
   return (
     <div className="flex-1 p-4 space-y-6">
-      <div className="bg-transparent rounded-lg p-4">
-        <div className="flex justify-between items-center mb-2">
-          <h2 className="text-lg font-semibold text-white">Daily Habits</h2>
-          <button
-            onClick={() => router.push('/daily-habits')}
-            className="text-white hover:text-blue-400 transition-colors"
-            title="Manage Daily Habits"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-              />
-            </svg>
-          </button>
+      {/* Mission Log Section */}
+      <div className="bg-black border-4 border-black text-white font-bold py-4 px-6 relative overflow-hidden" style={{
+        clipPath: 'polygon(20px 0, 100% 0, 100% 100%, 0 100%, 0 20px)'
+      }}>
+        <div className="absolute top-0 left-0 right-0 h-[15px] bg-orange-500" style={{
+          clipPath: 'polygon(20px 0, 100% 0, 100% 100%, 0 100%, 0 100px)'
+        }}></div>
+        <div className="absolute top-0 left-0 w-8 h-8 bg-black" style={{
+          clipPath: 'polygon(0 0, 100% 0, 0 100%)'
+        }}></div>
+        <div className="text-center">
+          <span className="relative z-10 text-xl">MISSION LOG 📋</span>
         </div>
-        <div className="grid grid-cols-6 gap-1">
-          {habits.filter(habit => !habit.archived).map(habit => (
+      </div>
+
+      {/* Daily Habits Section */}
+      <div className="bg-white border-4 border-black relative overflow-hidden" style={{
+        clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px))'
+      }}>
+        <div className="absolute top-0 right-0 w-8 h-8 bg-black" style={{
+          clipPath: 'polygon(0 0, 100% 0, 100% 100%)'
+        }}></div>
+        <div className="absolute bottom-0 left-0 w-8 h-8 bg-black" style={{
+          clipPath: 'polygon(0 0, 100% 100%, 0 100%)'
+        }}></div>
+        
+        <div className="p-4">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-bold text-black">DAILY HABITS</h2>
             <button
-              key={habit.id}
-              onClick={() => toggleHabit(habit.id)}
-              className={`px-1 py-2 border rounded text-lg ${
-                habit.completed ? "bg-blue-500 text-white" : "bg-transparent text-white border-gray-600"
-              }`}
+              onClick={() => router.push('/daily-habits')}
+              className="text-orange-500 hover:text-orange-600 transition-colors"
+              title="Manage Daily Habits"
             >
-              {habit.icon}
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
             </button>
-          ))}
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            {habits.filter(habit => !habit.archived).map(habit => (
+              <button
+                key={habit.id}
+                onClick={() => toggleHabit(habit.id)}
+                className={`p-3 border-2 text-2xl font-bold transition-colors ${
+                  habit.completed 
+                    ? "bg-orange-500 text-white border-black" 
+                    : "bg-white text-black border-black hover:bg-gray-100"
+                }`}
+              >
+                {habit.icon}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      <button
-        onClick={navigateToMissions}
-        className="w-full py-3 bg-black text-white rounded text-center"
-      >
-        Mission Log 📋
-      </button>
-
-      <div className="bg-[#818181] rounded-lg p-4">
-        <h2 className="text-lg font-semibold mb-2 text-white">Current Month Goals</h2>
-        {currentMonthGoals.length > 0 ? (
-          currentMonthGoals.map(goal => (
-            <div
-              key={goal.id}
-              className="flex items-center space-x-2 mb-2"
-            >
-              <div
-                className={`h-4 w-4 rounded-full border ${
-                  goal.completed ? "bg-blue-600" : "bg-[#818181] border-gray-600"
-                }`}
-              />
-              <span className={`${goal.completed ? "line-through" : ""} text-white`}>
-                {goal.text}
-              </span>
+      {/* Current Month Goals */}
+      <div className="bg-white border-4 border-black relative overflow-hidden" style={{
+        clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px))'
+      }}>
+        <div className="absolute top-0 left-0 right-0 h-[15px] bg-orange-500" style={{
+          clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%)'
+        }}></div>
+        <div className="absolute top-0 right-0 w-8 h-8 bg-black" style={{
+          clipPath: 'polygon(0 0, 100% 0, 100% 100%)'
+        }}></div>
+        <div className="absolute bottom-0 left-0 w-8 h-8 bg-black" style={{
+          clipPath: 'polygon(0 0, 125% 125%, 0 100%)'
+        }}></div>
+        
+        <div className="p-4">
+          <h2 className="text-lg font-bold mb-4 text-black">CURRENT MONTH GOALS</h2>
+          {currentMonthGoals.length > 0 ? (
+            <div className="grid grid-cols-2 gap-4">
+              {currentMonthGoals.map(goal => (
+                <div key={goal.id} className="flex items-center space-x-2">
+                  <div
+                    className={`h-6 w-6 border-2 border-black ${
+                      goal.completed ? "bg-orange-500" : "bg-white"
+                    }`}
+                  />
+                  <span className={`text-sm font-medium ${goal.completed ? "line-through text-gray-500" : "text-black"}`}>
+                    {goal.text}
+                  </span>
+                </div>
+              ))}
             </div>
-          ))
-        ) : (
-          <p className="text-gray-300 text-sm">No goals set for this month</p>
-        )}
+          ) : (
+            <p className="text-gray-500 text-sm">No goals set for this month</p>
+          )}
+        </div>
       </div>
 
-      <div className="bg-[#818181] rounded-lg p-4">
-        <h2 className="text-lg font-semibold mb-2 text-white">Current Week Tasks</h2>
-        {currentWeekTasks.length > 0 ? (
-          currentWeekTasks.map(task => (
-            <div
-              key={task.id}
-              className="flex items-center space-x-2 mb-2"
-            >
-              <div
-                className={`h-4 w-4 rounded-full border ${
-                  task.completed ? "bg-blue-600" : "bg-[#818181] border-gray-600"
-                }`}
-              />
-              <span className={`${task.completed ? "line-through" : ""} text-white`}>
-                {task.text}
-              </span>
+      {/* Current Week Tasks */}
+      <div className="bg-white border-4 border-black relative overflow-hidden" style={{
+        clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%)'
+      }}>
+        <div className="absolute top-0 right-0 w-8 h-8 bg-black" style={{
+          clipPath: 'polygon(0 0, 100% 0, 100% 100%)'
+        }}></div>
+        
+        <div className="p-4">
+          <h2 className="text-lg font-bold mb-4 text-black">CURRENT WEEK TASKS</h2>
+          {currentWeekTasks.length > 0 ? (
+            <div className="grid grid-cols-2 gap-4">
+              {currentWeekTasks.map(task => (
+                <div key={task.id} className="flex items-center space-x-2">
+                  <div
+                    className={`h-6 w-6 border-2 border-black ${
+                      task.completed ? "bg-orange-500" : "bg-white"
+                    }`}
+                  />
+                  <span className={`text-sm font-medium ${task.completed ? "line-through text-gray-500" : "text-black"}`}>
+                    {task.text}
+                  </span>
+                </div>
+              ))}
             </div>
-          ))
-        ) : (
-          <p className="text-gray-300 text-sm">No tasks set for this week</p>
-        )}
+          ) : (
+            <p className="text-gray-500 text-sm">No tasks set for this week</p>
+          )}
+        </div>
       </div>
     </div>
   );
